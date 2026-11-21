@@ -73,7 +73,7 @@ Esta é uma reescrita em Rust do [Sound Mod (Python)](https://github.com/renanzm
 
 ## Documentação
 
-Manual de arquitetura e desenvolvimento: [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
+Manual de arquitetura e desenvolvimento: [docs/ARQUITETURA.md](docs/ARQUITETURA.md) (também em [inglês](docs/ARCHITECTURE.md)).
 
 ## Limitações conhecidas
 

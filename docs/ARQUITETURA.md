@@ -1,5 +1,7 @@
 # Sound Mod (Rust) — Manual de Arquitetura e Desenvolvimento
 
+[English](ARCHITECTURE.md) | **Português**
+
 Soundboard para Windows que toca sons no canal do microfone, com hotkeys globais e gravação dos últimos N segundos do áudio do PC. Reescrita em Rust do Sound Mod em Python, com as mesmas funções e uma interface neon própria.
 
 ## 1. Visão geral
@@ -38,7 +40,7 @@ sound-mod-rs/
 ├── build.rs                # grava ícone + versão no .exe (gera o .res sem rc.exe)
 ├── rust-toolchain.toml     # stable GNU + llvm-tools
 ├── .cargo/config.toml      # linker rust-lld
-├── docs/                   # este manual e as capturas de tela
+├── docs/                   # este manual (pt/en) e as capturas de tela
 └── src/
     ├── main.rs             # janela (eframe), log de pânico
     ├── config.rs           # config.json, pastas (%APPDATA%\SoundMod), importacao da versao antiga
@@ -53,12 +55,12 @@ sound-mod-rs/
     ├── icon_raster.rs      # desenho do ícone em pixels (janela e .exe)
     └── ui/
         ├── app.rs          # janela principal (SoundApp)
-        ├── theme.rs        # paleta, fontes, estilo, brilho neon
+        ├── theme.rs        # paletas, fontes, estilo, brilho neon, temas
         ├── widgets.rs      # botões iluminados, tecla, interruptor, slider, medidor, cartão
         ├── waveform.rs     # forma de onda com alças
         ├── icons.rs        # ícones vetoriais
         ├── logo.rs         # logo do cabeçalho e ícone da janela
-        └── window.rs       # barra de título grafite e borda verde (DWM, Windows 11)
+        └── window.rs       # barra de título e borda na cor do neon (DWM, Windows 11)
 ```
 
 ## 3. Módulos
@@ -145,7 +147,7 @@ O que a interface e as hotkeys fazem: tocar/parar slots, salvar/tocar o clipe, s
 
 ### 3.8 Interface (`ui/`)
 - **Modo imediato:** `SoundApp::ui` redesenha tudo a cada quadro (~30 fps, por causa das animações) lendo o estado do `Core`/`Engine`. As ações das linhas são coletadas num `Vec<RowAction>` e aplicadas depois do desenho.
-- **Layout:** painel superior (logo, título neon, Ao vivo, medidores, idioma, Parar tudo), barra de status embaixo (com o botão **Pasta de dados**), lateral fixa (Dispositivos, Efeito de voz) e área central com o clipe num painel inferior e os sons ocupando o resto.
+- **Layout:** painel superior (logo, título neon, Ao vivo, medidores, cor, idioma, Parar tudo), barra de status embaixo (com o botão **Pasta de dados**), lateral fixa (Dispositivos, Efeito de voz) e área central com o clipe num painel inferior e os sons ocupando o resto.
 - **Lista de sons:** desenhada por grupo (`library::groups`) a partir de uma cópia da config. Sem nenhuma coleção, fica sem cabeçalhos (como antes). Cada coleção tem um cabeçalho (seta/nome recolhem, **+ Som**, ▲▼, ✎, lixeira); coleção recolhida não desenha as linhas, mas as teclas continuam valendo. Cada linha tem ▲▼ empilhadas (desligadas nas pontas do grupo) e um botão de camadas com o menu de coleções (`egui::Popup::menu`), incluindo "+ Nova coleção" que já move o som para ela.
 - **Janelinha de nome** (`NameDialog`): salvar clipe como som, nova coleção e renomear coleção; erros de validação aparecem dentro dela, em vermelho, sem fechar.
 - **Neon (`theme.rs`):** o brilho é uma `Shadow` colorida sem deslocamento atrás do elemento (`glow`); texto neon é o mesmo galley repintado com halo transparente. Paleta fixa: grafite `#0A0C0E`/`#121518` e vermelho neon só para remover/parar tudo.
@@ -155,7 +157,12 @@ O que a interface e as hotkeys fazem: tocar/parar slots, salvar/tocar o clipe, s
 - **Cor do neon:** `ACCENTS` tem 8 cores (verde, ciano, azul, roxo, rosa, vermelho, laranja, amarelo), cada uma com o tubo (`neon`) e o núcleo claro (`core`). A atual fica num atômico; a interface nunca usa uma cor de destaque fixa, só `accent()`, `accent_core()`, `accent_deep()` (fundo tingido) e `on_accent()` (texto sobre o neon: escuro nas cores claras, branco nas escuras, pela luminância). Trocar a cor (`SoundApp::set_accent`) chama `set_accent`, reaplica o estilo do egui, recolore a borda da janela (`window::recolor`), troca o ícone da janela (`ViewportCommand::Icon`) e salva `accent` no `config.json`. O ícone do `.exe` continua verde. **Nova cor:** acrescente em `ACCENTS` e a chave `accent_<nome>` nos dois idiomas e em `i18n::accent_name`.
 - **Fontes:** Segoe UI, Segoe UI Semibold e Bahnschrift (títulos) do Windows quando existem; senão as do egui. Ícones são vetoriais (`icons.rs`), sem fonte de ícones.
 - **Widgets próprios:** `button` (pílula iluminada), `key_button` (pílula + ✎ + ⌫, com layout próprio para funcionar dentro de layouts invertidos), `toggle`, `slider`, `level_meter`, `status_pill`, `choice`, `card` (com filete de luz no topo), `Waveform`.
-- **Janela:** borda verde e barra de título grafite via `DwmSetWindowAttribute` (Windows 11; no 10 é ignorado).
+- **Janela:** borda na cor do neon e barra de título escura via `DwmSetWindowAttribute` (Windows 11; no 10 é ignorado).
+
+### 3.9 Idiomas (`i18n.rs`)
+- Tabelas `PT` e `EN` com as mesmas chaves; `t("chave")` e `tf("chave", &[("nome", &valor)])` devolvem o texto no idioma atual. Um teste garante que os dois idiomas têm as mesmas chaves e os mesmos `{campos}`.
+- `language` na config: `"pt"`, `"en"` ou `null` = idioma do Windows (`GetUserDefaultUILanguage`: português → pt, qualquer outro → en). O menu do cabeçalho troca na hora e salva.
+- **Novo idioma:** inclua em `LANGUAGES` e crie a tabela com as mesmas chaves. **Texto novo:** nunca escreva direto no código; crie a chave em todos os idiomas.
 
 ## 4. Threads
 
