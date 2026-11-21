@@ -37,11 +37,16 @@ fn hover_anim(ui: &Ui, id: Id, on: bool) -> f32 {
 
 /// Botao-pilula com icone opcional.
 pub fn button(ui: &mut Ui, text: &str, icon: Option<Icon>, style: Style, min_width: f32) -> Response {
-    let font = bold(13.5);
+    button_sized(ui, text, icon, style, min_width, 34.0)
+}
+
+/// Botao-pilula numa altura qualquer (ex.: 28 nos cabecalhos das colecoes).
+pub fn button_sized(ui: &mut Ui, text: &str, icon: Option<Icon>, style: Style, min_width: f32, height: f32) -> Response {
+    let font = bold(if height < 32.0 { 12.5 } else { 13.5 });
     let galley = ui.painter().layout_no_wrap(text.to_string(), font, Color32::PLACEHOLDER);
     let icon_w = if icon.is_some() { 24.0 } else { 0.0 };
     let width = (galley.size().x + icon_w + 34.0).max(min_width);
-    let (rect, resp) = ui.allocate_exact_size(vec2(width, 34.0), Sense::click());
+    let (rect, resp) = ui.allocate_exact_size(vec2(width, height), Sense::click());
     if ui.is_rect_visible(rect) {
         let h = hover_anim(ui, resp.id, resp.hovered());
         let pressed = resp.is_pointer_button_down_on();
@@ -80,8 +85,14 @@ pub fn button(ui: &mut Ui, text: &str, icon: Option<Icon>, style: Style, min_wid
 
 /// Botao quadrado arredondado so com icone.
 pub fn icon_button(ui: &mut Ui, icon: Icon, size: f32, tint: Tint, enabled: bool) -> Response {
+    icon_button_sized(ui, icon, vec2(size, size), tint, enabled)
+}
+
+/// Botao de icone retangular (ex.: setas de ordem empilhadas).
+pub fn icon_button_sized(ui: &mut Ui, icon: Icon, size: egui::Vec2, tint: Tint, enabled: bool) -> Response {
     let sense = if enabled { Sense::click() } else { Sense::hover() };
-    let (rect, resp) = ui.allocate_exact_size(vec2(size, size), sense);
+    let (rect, resp) = ui.allocate_exact_size(size, sense);
+    let size = size.min_elem();
     if ui.is_rect_visible(rect) {
         let h = if enabled { hover_anim(ui, resp.id, resp.hovered()) } else { 0.0 };
         let p = ui.painter();
@@ -104,11 +115,13 @@ pub fn icon_button(ui: &mut Ui, icon: Icon, size: f32, tint: Tint, enabled: bool
         let idle = match (tint, enabled) {
             (_, false) => DIM,
             (Tint::Danger, _) => alpha_of(DANGER, 210),
-            (Tint::Flat, _) => MUTED,
+            (Tint::Flat, _) => mix(MUTED, TEXT, 0.25),
             (Tint::Normal, _) => TEXT,
         };
         let fg = if enabled { mix(idle, if tint == Tint::Danger { DANGER } else { NEON_CORE }, h) } else { idle };
-        icons::paint(p, rect.shrink(size * 0.27), icon, fg);
+        // quadrado: icone com 46% do lado; retangulo baixo (setas): ocupa mais da altura
+        let k = if (rect.width() - rect.height()).abs() < 0.5 { 0.46 } else { 1.15 };
+        icons::paint(p, Rect::from_center_size(rect.center(), egui::Vec2::splat(size * k)), icon, fg);
     }
     if enabled { resp.on_hover_cursor(CursorIcon::PointingHand) } else { resp }
 }
@@ -394,4 +407,31 @@ pub fn title(ui: &mut Ui, icon: Icon, text: &str) -> Response {
     icons::paint(p, icon_rect, icon, NEON);
     p.galley(pos2(rect.left() + 26.0, rect.center().y - galley.size().y / 2.0), galley, TEXT);
     resp
+}
+
+/// Quantidade de sons de um grupo, numa pilula pequena.
+pub fn count_badge(ui: &mut Ui, n: usize, lit: bool) -> Response {
+    let galley = ui.painter().layout_no_wrap(n.to_string(), bold(11.5), Color32::PLACEHOLDER);
+    let (rect, resp) = ui.allocate_exact_size(vec2((galley.size().x + 16.0).max(24.0), 20.0), Sense::hover());
+    let p = ui.painter();
+    let stroke = Stroke::new(1.0, if lit { neon(90) } else { BORDER });
+    p.rect(rect, CornerRadius::same(10), ITEM, stroke, StrokeKind::Inside);
+    p.galley(rect.center() - galley.size() / 2.0, galley, if lit { NEON_CORE } else { MUTED });
+    resp
+}
+
+/// Nome de colecao em neon; clicavel (recolhe/expande).
+pub fn collection_name(ui: &mut Ui, name: &str, expanded: bool) -> Response {
+    let galley = ui.painter().layout_no_wrap(name.to_string(), bold(14.5), Color32::PLACEHOLDER);
+    let (rect, resp) = ui.allocate_exact_size(vec2(galley.size().x + 4.0, 26.0), Sense::click());
+    let h = hover_anim(ui, resp.id, resp.hovered());
+    let p = ui.painter();
+    let pos = pos2(rect.left() + 2.0, rect.center().y - galley.size().y / 2.0);
+    if expanded || h > 0.01 {
+        let a = (if expanded { 45.0 } else { 0.0 } + 60.0 * h) as u8;
+        p.galley(pos + vec2(0.0, 1.0), galley.clone(), neon(a));
+        p.galley(pos - vec2(0.0, 1.0), galley.clone(), neon(a));
+    }
+    p.galley(pos, galley, if expanded { mix(NEON_CORE, Color32::WHITE, h * 0.3) } else { mix(MUTED, TEXT, h) });
+    resp.on_hover_cursor(CursorIcon::PointingHand)
 }

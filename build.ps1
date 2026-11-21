@@ -53,8 +53,8 @@ if (Get-Process SoundMod -ErrorAction SilentlyContinue) {
 cargo build --release
 if ($LASTEXITCODE -ne 0) { throw "a compilacao falhou" }
 
-# so o .exe e trocado: config.json, clips\ e sounds\ do usuario continuam na pasta
+# os dados do usuario ficam em %APPDATA%\SoundMod: aqui so o .exe e trocado
 $dist = Join-Path $PSScriptRoot "dist\SoundMod"
-New-Item -ItemType Directory -Force (Join-Path $dist "clips") | Out-Null
+New-Item -ItemType Directory -Force $dist | Out-Null
 Copy-Item "target\release\SoundMod.exe" $dist -Force
 Write-Host "Pronto: dist\SoundMod\SoundMod.exe"

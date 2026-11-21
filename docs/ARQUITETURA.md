@@ -41,7 +41,8 @@ sound-mod-rs/
 ├── docs/                   # este manual e as capturas de tela
 └── src/
     ├── main.rs             # janela (eframe), log de pânico
-    ├── config.rs           # config.json, caminhos (pasta do programa)
+    ├── config.rs           # config.json, pastas (%APPDATA%\SoundMod), importacao da versao antiga
+    ├── library.rs          # ordem dos sons e colecoes (funcoes puras, com testes)
     ├── i18n.rs             # textos pt/en, t()/tf(), idioma do Windows
     ├── codec.rs            # decodificar, reamostrar, gravar WAV
     ├── engine.rs           # mixer, canais, streams cpal, dispositivos
@@ -63,11 +64,23 @@ sound-mod-rs/
 ## 3. Módulos
 
 ### 3.1 `config.rs`
-- Mesmo formato do `config.json` da versão Python (dá para copiar): `language`, `mic_device`, `output_device`, `monitor_device`, `loopback_device`, `mix_mic`, `monitor`, `master_volume`, `clip_seconds`, `voice_effect`, `hear_self`, `clip_trim`, `save_clip_key`, `play_clip_key`, `stop_key`, `slots[{key, path, volume}]`.
+- **Pastas:** `Dirs { app, data }`. `app` = pasta do `.exe` (rodando de `target\debug|release`, a raiz do projeto). `data` = `%APPDATA%\SoundMod`, onde ficam `config.json`, `sounds\` e `clips\last_clip.wav`: substituir a pasta do programa numa atualização não apaga nada. É a **mesma pasta da versão Python**, que lê o mesmo arquivo.
+- **Importação única:** se `data` ainda não tem `config.json` e existe um ao lado do `.exe` (versões antigas), copia `sounds\` e `clips\` sem sobrescrever o que já existe e, por último, o `config.json` (se algo falhar no meio, tenta de novo na próxima vez). Nada é apagado da pasta antiga. `load()` devolve a pasta de origem e a interface avisa na barra de status.
+- **Config corrompido:** é copiado para `config-corrompido-AAAAMMDD-HHMMSS.json` antes de usar os padrões (senão o próximo save gravaria por cima). BOM do Bloco de Notas é aceito.
+- Mesmo formato da versão Python: `language`, `mic_device`, `output_device`, `monitor_device`, `loopback_device`, `mix_mic`, `monitor`, `master_volume`, `clip_seconds`, `voice_effect`, `hear_self`, `clip_trim`, `save_clip_key`, `play_clip_key`, `stop_key`, `collections[{name, collapsed}]`, `slots[{key, path, volume, collection}]`. **Campos desconhecidos são preservados** (`#[serde(flatten)] extra`), para uma versão não apagar o que a outra gravou. `collections` aceita também nomes soltos (`["Memes"]`).
 - Dispositivos por **nome**: `None` = automático (resolvido na primeira abertura e então salvo), `Some("")` = nenhum. O texto antigo `"(nenhum)"` vira `""`.
-- `root()` é a pasta do `.exe`; rodando de `target\debug|release`, a raiz do projeto. `resolve()` aceita caminhos relativos (`sounds/x.wav`).
-- `save()` grava num `.tmp` e renomeia.
-- `Slot.id` só existe em memória: é o id do canal no mixer.
+- `resolve()`: caminhos relativos (`sounds/x.wav`) são relativos à pasta de dados.
+- `save()` grava em `config.tmp` e renomeia.
+- `Slot.id` só existe em memória: é o id do canal no mixer (e identifica o som na ordem/coleções, já que dois slots vazios são iguais em conteúdo).
+- `load_in`/`save_in` recebem as pastas: os testes usam pastas temporárias.
+
+### 3.1.1 `library.rs` (ordem e coleções)
+Funções puras sobre a `Config`, portadas do `library.py`:
+- A ordem de `cfg.slots` é a ordem na tela. Na tela vêm primeiro os sons sem coleção e depois cada coleção na ordem de `cfg.collections` (`groups()`).
+- `move_slot(id, ±1)`: troca com o vizinho **da mesma coleção**. `set_collection(id, nome)`: põe o som no fim da coleção (erro se ela não existe).
+- `clean_name()`: tira espaços extras; erro se vazio ou se já existe (sem diferenciar maiúsculas; ao renomear pode mudar só maiúsculas/minúsculas); os rótulos "(sem coleção)"/"(no collection)" de todos os idiomas são reservados.
+- `rename_collection`, `delete_collection` (os sons vão para o fim de "sem coleção"; nenhum som é apagado), `move_collection`, `set_collapsed`.
+- `normalize()`: completa configs antigas ou editadas à mão (nomes em branco, coleções repetidas, som apontando para coleção inexistente, que é criada).
 
 ### 3.2 `codec.rs`
 - Formato interno: `Vec<f32>` estéreo intercalado a **48 kHz**.
@@ -128,11 +141,13 @@ Porte direto do `voice.py`, agora amostra a amostra (sem numpy). Cada efeito imp
 - Nomes estáveis em minúsculas; `normalize()` aceita sinônimos antigos (`control`, `escape`, `page_up`...).
 
 ### 3.7 `logic.rs` (`Core`)
-O que a interface e as hotkeys fazem: tocar/parar slots, salvar/tocar o clipe, salvar o trecho como som, adicionar/remover sons, trocar teclas, trocar o efeito, salvar a config. As hotkeys chamam `Core::on_action` **na própria thread**, então funcionam com a janela minimizada (o eframe nem chama `ui()` nesse estado). Trabalho demorado vai para threads; mensagens vão para `status`, que a interface lê a cada quadro.
+O que a interface e as hotkeys fazem: tocar/parar slots, salvar/tocar o clipe, salvar o trecho como som, adicionar/remover sons (inclusive direto numa coleção: usa o primeiro slot vazio **do mesmo grupo** ou cria um no fim dele, e expande a coleção), mudar a ordem, criar/renomear/apagar/mover/recolher coleções (validando o nome com a mensagem já traduzida), trocar teclas, trocar o efeito, salvar a config. As hotkeys chamam `Core::on_action` **na própria thread**, então funcionam com a janela minimizada (o eframe nem chama `ui()` nesse estado). Trabalho demorado vai para threads; mensagens vão para `status`, que a interface lê a cada quadro.
 
 ### 3.8 Interface (`ui/`)
 - **Modo imediato:** `SoundApp::ui` redesenha tudo a cada quadro (~30 fps, por causa das animações) lendo o estado do `Core`/`Engine`. As ações das linhas são coletadas num `Vec<RowAction>` e aplicadas depois do desenho.
-- **Layout:** painel superior (logo, título neon, Ao vivo, medidores, idioma, Parar tudo), barra de status embaixo, lateral fixa (Dispositivos, Efeito de voz) e área central com o clipe num painel inferior e os sons ocupando o resto.
+- **Layout:** painel superior (logo, título neon, Ao vivo, medidores, idioma, Parar tudo), barra de status embaixo (com o botão **Pasta de dados**), lateral fixa (Dispositivos, Efeito de voz) e área central com o clipe num painel inferior e os sons ocupando o resto.
+- **Lista de sons:** desenhada por grupo (`library::groups`) a partir de uma cópia da config. Sem nenhuma coleção, fica sem cabeçalhos (como antes). Cada coleção tem um cabeçalho (seta/nome recolhem, **+ Som**, ▲▼, ✎, lixeira); coleção recolhida não desenha as linhas, mas as teclas continuam valendo. Cada linha tem ▲▼ empilhadas (desligadas nas pontas do grupo) e um botão de camadas com o menu de coleções (`egui::Popup::menu`), incluindo "+ Nova coleção" que já move o som para ela.
+- **Janelinha de nome** (`NameDialog`): salvar clipe como som, nova coleção e renomear coleção; erros de validação aparecem dentro dela, em vermelho, sem fechar.
 - **Neon (`theme.rs`):** o brilho é uma `Shadow` colorida sem deslocamento atrás do elemento (`glow`); texto neon é o mesmo galley repintado com halo transparente. Paleta: grafite `#0A0C0E`/`#121518`, verde fluorescente `#39FF14` com núcleo `#C8FFB8`, vermelho neon só para remover/parar tudo.
 - **Fontes:** Segoe UI, Segoe UI Semibold e Bahnschrift (títulos) do Windows quando existem; senão as do egui. Ícones são vetoriais (`icons.rs`), sem fonte de ícones.
 - **Widgets próprios:** `button` (pílula iluminada), `key_button` (pílula + ✎ + ⌫, com layout próprio para funcionar dentro de layouts invertidos), `toggle`, `slider`, `level_meter`, `status_pill`, `choice`, `card` (com filete de luz no topo), `Waveform`.
@@ -167,11 +182,19 @@ O que a interface e as hotkeys fazem: tocar/parar slots, salvar/tocar o clipe, s
 - `voice`: frequência do pitch shifter, todos os efeitos finitos e sem silenciar, silêncio continua silêncio, detecção de pitch, autotune puxando para o semitom.
 - `hotkeys`: normalização, nomes ida e volta, teclas inválidas.
 - `i18n`: mesmas chaves e campos nos dois idiomas.
+- `library` (portados de `tests/test_library.py`): grupos na ordem, mover só dentro da coleção, pontas, slots vazios iguais (por id), mudar de coleção vai para o fim, renomear, apagar mantém os sons, mover/recolher coleção, validação de nomes, configs antigas e coleções repetidas/em branco.
+- `config` (portados de `tests/test_config.py`): instalação nova, importação da versão antiga (config, sons e clipe; nada apagado), pasta do programa substituída mantém tudo, config antigo copiado de novo não vence, importação não sobrescreve sons, config corrompido guardado à parte, ida e volta preservando campos desconhecidos.
 - `cable_roundtrip` (ignorado por padrão): toca 1 kHz baixo no `CABLE Input`, grava pelo loopback do mesmo dispositivo e confere frequência e amplitude no WAV salvo. Não sai nos alto-falantes.
+
+### Variáveis de ambiente (diagnóstico)
+- `SOUNDMOD_DATA_DIR`: usa outra pasta de dados no lugar de `%APPDATA%\SoundMod` (testes, capturas de tela sem mexer nos dados reais).
+- `SOUNDMOD_DEBUG_KEYS=1`: mostra no stderr cada tecla que o gancho recebe e cada combinação montada (rodar o build de debug pelo terminal).
+
+**Teclas simuladas em testes:** processos abertos dentro de um ambiente isolado (sandbox de ferramentas de automação) podem não receber no gancho as teclas injetadas com `keybd_event`/`SendInput`. Aberto normalmente (Explorer, atalho, terminal do usuário) o gancho recebe; para testar teclas globais automaticamente, abra o app fora do sandbox.
 
 ## 7. Estado e pendências
 
-Verificado nesta máquina: abertura de mic/cabo/fones e loopback, `cable_roundtrip` (1000 Hz, pico 0,100), F1 e F5 globais pelo gancho (tocou o slot; salvou 5,0 s), interface em pt e en, ícone e versão no `.exe`.
+Verificado nesta máquina: abertura de mic/cabo/fones e loopback, `cable_roundtrip` (1000 Hz, pico 0,100), F1 e F5 globais pelo gancho (tocou o slot; salvou o clipe), interface em pt e en, ícone e versão no `.exe`. Ordem e coleções pela interface: ▲▼, menu de coleção, nova coleção (nome repetido recusado com aviso; nome válido criado), recolher, tudo salvo no `config.json`; importação da config antiga com o aviso na barra de status.
 
 Ainda não verificado:
 1. Efeitos de voz com voz real, de ouvido (só sinais sintéticos nos testes).

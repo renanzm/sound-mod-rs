@@ -17,10 +17,11 @@ use super::theme::{self, *};
 use super::waveform::{WaveEvent, Waveform};
 use super::widgets::{self, Style, Tint};
 use crate::codec;
-use crate::config::{self, Slot};
+use crate::config::{self, Collection, Slot};
 use crate::engine::{self, CLIP};
 use crate::hotkeys::{self, Hotkeys};
 use crate::i18n::{self, t, tf};
+use crate::library;
 use crate::logic::{Core, FX_KEYS, KeyTarget, default_sound_name};
 use crate::voice;
 
@@ -37,6 +38,35 @@ enum RowAction {
     Volume(u64, f32, bool),
     Edit(KeyTarget),
     Clear(KeyTarget),
+    MoveSlot(u64, isize),
+    SetCollection(u64, Option<String>),
+    NewCollection(Option<u64>),
+    AddInto(String),
+    ToggleCollection(String),
+    MoveCollection(String, isize),
+    RenameCollection(String),
+    DeleteCollection(String),
+}
+
+/// Para que serve a janelinha de nome aberta.
+enum DialogKind {
+    SaveSound,
+    /// `assign`: som que vai para a colecao nova (menu de colecoes de um som).
+    NewCollection { assign: Option<u64> },
+    RenameCollection(String),
+}
+
+struct NameDialog {
+    kind: DialogKind,
+    text: String,
+    error: Option<String>,
+    focus: bool,
+}
+
+impl NameDialog {
+    fn new(kind: DialogKind, text: String) -> Self {
+        Self { kind, text, error: None, focus: true }
+    }
 }
 
 pub struct SoundApp {
@@ -49,9 +79,10 @@ pub struct SoundApp {
     capture: Option<(KeyTarget, mpsc::Receiver<Option<String>>)>,
     wave: Waveform,
     levels: [f32; 2],
-    save_name: Option<String>,
-    save_focus: bool,
+    dialog: Option<NameDialog>,
     secs_text: String,
+    /// Aviso unico na barra de status (config da versao anterior importada).
+    notice: Option<String>,
 }
 
 impl SoundApp {
@@ -60,8 +91,9 @@ impl SoundApp {
         theme::apply_style(&cc.egui_ctx);
         super::window::style(cc);
 
-        let mut cfg = config::load();
+        let (mut cfg, migrated) = config::load();
         i18n::set_language(cfg.language.as_deref());
+        let notice = migrated.map(|path| tf("config_imported", &[("path", &path.display())]));
         let (inputs, outputs) = engine::list_devices();
         let (def_in, def_out) = engine::default_device_names();
         let cable = outputs.iter().find(|n| n.contains("CABLE Input")).cloned();
@@ -104,9 +136,9 @@ impl SoundApp {
             capture: None,
             wave: Waveform::default(),
             levels: [0.0; 2],
-            save_name: None,
-            save_focus: false,
+            dialog: None,
             secs_text,
+            notice,
         };
         app.start_all();
         app
@@ -144,6 +176,9 @@ impl SoundApp {
                 msgs.push(t("capture_on").into());
             }
             Err(e) => msgs.push(tf("capture_error", &[("e", &e)])),
+        }
+        if let Some(notice) = self.notice.take() {
+            msgs.insert(0, notice);
         }
         self.core.register_hotkeys();
         self.core.save_cfg();
@@ -218,6 +253,21 @@ impl SoundApp {
                     self.core.set_key(target, String::new());
                     self.core.say(t("key_removed"));
                 }
+                RowAction::MoveSlot(id, delta) => self.core.move_slot(id, delta),
+                RowAction::SetCollection(id, name) => self.core.set_slot_collection(id, name),
+                RowAction::NewCollection(assign) => {
+                    self.dialog = Some(NameDialog::new(DialogKind::NewCollection { assign }, String::new()));
+                }
+                RowAction::AddInto(name) => {
+                    let files = pick_files(true);
+                    self.core.add_sounds(files, Some(name));
+                }
+                RowAction::ToggleCollection(name) => self.core.toggle_collection(&name),
+                RowAction::MoveCollection(name, delta) => self.core.move_collection(&name, delta),
+                RowAction::RenameCollection(name) => {
+                    self.dialog = Some(NameDialog::new(DialogKind::RenameCollection(name.clone()), name));
+                }
+                RowAction::DeleteCollection(name) => self.core.delete_collection(&name),
             }
         }
     }
@@ -327,25 +377,43 @@ impl SoundApp {
                 ui.horizontal(|ui| {
                     widgets::title(ui, Icon::Waves, t("sounds"));
                     ui.add_space(8.0);
-                    let hint_w = (ui.available_width() - 190.0).max(40.0);
+                    let hint_w = (ui.available_width() - 360.0).max(40.0);
                     widgets::label_truncated(ui, t("sounds_hint"), hint_w, font(12.5), MUTED);
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         if widgets::button(ui, t("add_sound"), Some(Icon::Plus), Style::Primary, 0.0).clicked() {
                             let files = pick_files(true);
-                            self.core.add_sounds(files);
+                            self.core.add_sounds(files, None);
+                        }
+                        if widgets::button(ui, t("new_collection"), Some(Icon::Layers), Style::Ghost, 0.0).clicked() {
+                            actions.push(RowAction::NewCollection(None));
                         }
                     });
                 });
                 ui.add_space(8.0);
                 let list_h = ui.available_height();
+                // copia: a lista e desenhada sem segurar o lock da config
+                let cfg = self.core.cfg.lock().clone();
+                let labels = library::names(&cfg);
                 ScrollArea::vertical()
                     .id_salt("slots")
                     .auto_shrink([false, false])
                     .max_height(list_h)
                     .show(ui, |ui| {
                         ui.add_space(4.0);
-                        for slot in self.core.slots() {
-                            self.slot_row(ui, &slot, time, &mut actions);
+                        let ncols = cfg.collections.len();
+                        for group in library::groups(&cfg) {
+                            // sem nenhuma colecao, a lista fica sem cabecalhos
+                            if ncols > 0 && (group.collection.is_some() || !group.slots.is_empty()) {
+                                let index = group.collection.and_then(|c| cfg.collections.iter().position(|x| x == c));
+                                self.collection_header(ui, group.collection, group.slots.len(), index, ncols, &mut actions);
+                            }
+                            if group.collection.is_some_and(|c| c.collapsed) {
+                                continue; // recolhida: some da lista, mas as teclas continuam valendo
+                            }
+                            let n = group.slots.len();
+                            for (i, slot) in group.slots.iter().enumerate() {
+                                self.slot_row(ui, slot, (i > 0, i + 1 < n), &labels, time, &mut actions);
+                            }
                         }
                     });
             });
@@ -353,7 +421,76 @@ impl SoundApp {
         self.apply(actions);
     }
 
-    fn slot_row(&self, ui: &mut Ui, slot: &Slot, time: f64, actions: &mut Vec<RowAction>) {
+    /// Cabecalho de um grupo: nome e quantidade; nas colecoes, recolher, adicionar som, mudar de
+    /// posicao, renomear e apagar. `coll` None = grupo dos sons sem colecao.
+    fn collection_header(
+        &self,
+        ui: &mut Ui,
+        coll: Option<&Collection>,
+        count: usize,
+        index: Option<usize>,
+        total: usize,
+        actions: &mut Vec<RowAction>,
+    ) {
+        Frame::new()
+            .fill(Color32::from_rgb(0x15, 0x19, 0x1C))
+            .corner_radius(12)
+            .inner_margin(Margin { left: 6, right: 8, top: 4, bottom: 4 })
+            .outer_margin(Margin { left: 4, right: 10, top: 6, bottom: 6 })
+            .stroke(Stroke::new(1.0, if coll.is_some() { neon(55) } else { BORDER }))
+            .show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 6.0;
+                    let Some(c) = coll else {
+                        ui.add_space(8.0);
+                        ui.label(RichText::new(t("ungrouped").to_uppercase()).font(bold(12.5)).color(MUTED));
+                        widgets::count_badge(ui, count, false);
+                        return;
+                    };
+                    let chevron = if c.collapsed { Icon::ChevronRight } else { Icon::ChevronDown };
+                    let toggle = widgets::icon_button(ui, chevron, 28.0, Tint::Flat, true).on_hover_text(t("tip_collapse"));
+                    let name = widgets::collection_name(ui, &c.name, !c.collapsed).on_hover_text(t("tip_collapse"));
+                    if toggle.clicked() || name.clicked() {
+                        actions.push(RowAction::ToggleCollection(c.name.clone()));
+                    }
+                    widgets::count_badge(ui, count, true);
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        let i = index.unwrap_or(0);
+                        let del = widgets::icon_button(ui, Icon::Trash, 28.0, Tint::Danger, true);
+                        if del.on_hover_text(t("tip_delete_collection")).clicked() {
+                            actions.push(RowAction::DeleteCollection(c.name.clone()));
+                        }
+                        let ren = widgets::icon_button(ui, Icon::Edit, 28.0, Tint::Flat, true);
+                        if ren.on_hover_text(t("tip_rename_collection")).clicked() {
+                            actions.push(RowAction::RenameCollection(c.name.clone()));
+                        }
+                        if widgets::icon_button(ui, Icon::ArrowDown, 28.0, Tint::Flat, i + 1 < total).clicked() {
+                            actions.push(RowAction::MoveCollection(c.name.clone(), 1));
+                        }
+                        if widgets::icon_button(ui, Icon::ArrowUp, 28.0, Tint::Flat, i > 0).clicked() {
+                            actions.push(RowAction::MoveCollection(c.name.clone(), -1));
+                        }
+                        ui.add_space(4.0);
+                        let add = widgets::button_sized(ui, t("add_here"), Some(Icon::Plus), Style::Ghost, 0.0, 28.0);
+                        if add.on_hover_text(t("tip_add_here")).clicked() {
+                            actions.push(RowAction::AddInto(c.name.clone()));
+                        }
+                    });
+                });
+            });
+    }
+
+    /// Uma linha de som. `order` = (pode subir, pode descer) dentro do grupo.
+    fn slot_row(
+        &self,
+        ui: &mut Ui,
+        slot: &Slot,
+        order: (bool, bool),
+        collections: &[String],
+        time: f64,
+        actions: &mut Vec<RowAction>,
+    ) {
         let id = slot.id;
         let state = self.core.channel_state(id);
         let (pos, dur, playing) = state.unwrap_or((0.0, 0.0, false));
@@ -361,7 +498,7 @@ impl SoundApp {
         let frame = Frame::new()
             .fill(if playing { mix(ITEM, NEON_DEEP, 0.55) } else { ITEM })
             .corner_radius(14)
-            .inner_margin(Margin::symmetric(10, 7))
+            .inner_margin(Margin { left: 6, right: 10, top: 7, bottom: 7 })
             .outer_margin(Margin { left: 4, right: 10, top: 0, bottom: 0 })
             .stroke(Stroke::new(1.0, if playing { neon((150.0 + 100.0 * k) as u8) } else { BORDER }))
             .shadow(if playing {
@@ -373,6 +510,18 @@ impl SoundApp {
             ui.set_width(ui.available_width());
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x = 6.0;
+                // setas de ordem empilhadas
+                ui.vertical(|ui| {
+                    ui.spacing_mut().item_spacing.y = 2.0;
+                    let up = widgets::icon_button_sized(ui, Icon::ArrowUp, vec2(24.0, 15.0), Tint::Flat, order.0);
+                    if up.on_hover_text(t("tip_up")).clicked() {
+                        actions.push(RowAction::MoveSlot(id, -1));
+                    }
+                    let down = widgets::icon_button_sized(ui, Icon::ArrowDown, vec2(24.0, 15.0), Tint::Flat, order.1);
+                    if down.on_hover_text(t("tip_down")).clicked() {
+                        actions.push(RowAction::MoveSlot(id, 1));
+                    }
+                });
                 let target = KeyTarget::Slot(id);
                 let kr = widgets::key_button(
                     ui,
@@ -396,10 +545,11 @@ impl SoundApp {
                 if widgets::icon_button(ui, Icon::Folder, 30.0, Tint::Normal, true).on_hover_text(t("tip_file")).clicked() {
                     actions.push(RowAction::Pick(id));
                 }
+                self.collection_menu(ui, slot, collections, actions);
 
                 let compact = ui.available_width() < 640.0;
-                let (prog_w, vol_w) = if compact { (96.0, 60.0) } else { (150.0, 80.0) };
-                let fixed = 86.0 + prog_w + 18.0 + vol_w + 4.0 * 30.0 + 9.0 * 6.0;
+                let (time_w, prog_w, vol_w) = if compact { (76.0, 80.0, 56.0) } else { (86.0, 150.0, 80.0) };
+                let fixed = time_w + prog_w + 18.0 + vol_w + 4.0 * 30.0 + 9.0 * 6.0;
                 let name_w = (ui.available_width() - fixed).max(50.0);
                 let empty = slot.path.is_empty();
                 let name = if empty { t("no_file").to_string() } else { config::file_name(&slot.path) };
@@ -414,8 +564,9 @@ impl SoundApp {
                 } else {
                     "-:-- / -:--".to_string()
                 };
-                let (tr, _) = ui.allocate_exact_size(vec2(86.0, 20.0), Sense::hover());
-                ui.painter().text(tr.right_center(), Align2::RIGHT_CENTER, time_text, font(12.0), if playing { NEON_CORE } else { MUTED });
+                let (tr, _) = ui.allocate_exact_size(vec2(time_w, 20.0), Sense::hover());
+                let time_color = if playing { NEON_CORE } else { MUTED };
+                ui.painter().text(tr.right_center(), Align2::RIGHT_CENTER, time_text, font(12.0), time_color);
 
                 let mut p = pos as f32;
                 let seek = widgets::slider(ui, &mut p, 0.0..=(dur.max(0.01) as f32), prog_w, false, state.is_some());
@@ -451,6 +602,30 @@ impl SoundApp {
         ui.add_space(7.0);
     }
 
+    /// Botao de colecao do som: menu com "(sem colecao)", as colecoes e "Nova colecao".
+    fn collection_menu(&self, ui: &mut Ui, slot: &Slot, collections: &[String], actions: &mut Vec<RowAction>) {
+        let current = slot.collection.clone();
+        let tip = format!("{}: {}", t("tip_collection"), current.as_deref().unwrap_or(t("no_collection")));
+        let tint = if current.is_some() { Tint::Normal } else { Tint::Flat };
+        let resp = widgets::icon_button(ui, Icon::Layers, 30.0, tint, true).on_hover_text(tip);
+        egui::Popup::menu(&resp).width(220.0).show(|ui| {
+            ui.style_mut().override_font_id = Some(font(13.5));
+            if ui.selectable_label(current.is_none(), t("no_collection")).clicked() && current.is_some() {
+                actions.push(RowAction::SetCollection(slot.id, None));
+            }
+            for name in collections {
+                let here = current.as_deref() == Some(name.as_str());
+                if ui.selectable_label(here, name.as_str()).clicked() && !here {
+                    actions.push(RowAction::SetCollection(slot.id, Some(name.clone())));
+                }
+            }
+            ui.separator();
+            if ui.selectable_label(false, format!("+ {}", t("new_collection"))).clicked() {
+                actions.push(RowAction::NewCollection(Some(slot.id)));
+            }
+        });
+    }
+
     // ---------- clipe ----------
     fn clip_card(&mut self, ui: &mut Ui, time: f64) {
         let mut actions = Vec::new();
@@ -461,8 +636,7 @@ impl SoundApp {
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     if widgets::button(ui, t("save_as_sound"), Some(Icon::Save), Style::Primary, 0.0).clicked() {
                         if self.core.engine.has(CLIP) {
-                            self.save_name = Some(String::new());
-                            self.save_focus = true;
+                            self.dialog = Some(NameDialog::new(DialogKind::SaveSound, String::new()));
                         } else {
                             self.core.say(t("no_clip_saved"));
                         }
@@ -648,19 +822,37 @@ impl SoundApp {
             let k = theme::pulse(time, 2.0);
             theme::glow(ui.painter(), egui::Rect::from_center_size(dot.center(), vec2(5.0, 5.0)), 3.0, neon((60.0 + 60.0 * k) as u8), 8.0);
             ui.painter().circle_filled(dot.center(), 2.5, NEON);
-            let w = (ui.available_width() - 160.0).max(80.0);
+            let w = (ui.available_width() - 320.0).max(80.0);
             widgets::label_truncated(ui, &self.core.status(), w, font(12.5), mix(MUTED, TEXT, 0.5));
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 ui.label(RichText::new(format!("v{} · Rust", env!("CARGO_PKG_VERSION"))).font(font(11.5)).color(DIM));
+                ui.add_space(6.0);
+                let dir = config::data_dir();
+                let tip = tf("tip_data_folder", &[("path", &dir.display())]);
+                let open = widgets::button_sized(ui, t("data_folder"), Some(Icon::Folder), Style::Ghost, 0.0, 26.0);
+                if open.on_hover_text(tip).clicked() {
+                    let _ = std::fs::create_dir_all(dir);
+                    let _ = std::process::Command::new("explorer").arg(dir).spawn();
+                }
             });
         });
     }
 
-    fn save_modal(&mut self, ctx: &egui::Context) {
-        let Some(name) = self.save_name.as_mut() else { return };
-        let (mut save, mut close) = (false, false);
-        let focus = std::mem::take(&mut self.save_focus);
-        let modal = egui::Modal::new(Id::unique("save_sound"))
+    /// Janelinha de nome: salvar clipe como som, nova colecao ou renomear colecao.
+    fn name_modal(&mut self, ctx: &egui::Context) {
+        let Some(dlg) = self.dialog.as_mut() else { return };
+        let (title, label, icon, hint) = match &dlg.kind {
+            DialogKind::SaveSound => (t("save_sound_title").to_string(), t("sound_name"), Icon::Save, default_sound_name()),
+            DialogKind::NewCollection { .. } => {
+                (t("new_collection_title").to_string(), t("collection_name"), Icon::Layers, String::new())
+            }
+            DialogKind::RenameCollection(old) => {
+                (tf("rename_collection_title", &[("name", old)]), t("collection_name"), Icon::Edit, String::new())
+            }
+        };
+        let (mut submit, mut close) = (false, false);
+        let focus = std::mem::take(&mut dlg.focus);
+        let modal = egui::Modal::new(Id::unique("name_dialog"))
             .backdrop_color(Color32::from_black_alpha(170))
             .frame(
                 Frame::new()
@@ -672,12 +864,12 @@ impl SoundApp {
             )
             .show(ctx, |ui| {
                 ui.set_width(400.0);
-                widgets::title(ui, Icon::Save, t("save_sound_title"));
+                widgets::title(ui, icon, &title);
                 ui.add_space(10.0);
-                widgets::caption(ui, t("sound_name"));
+                widgets::caption(ui, label);
                 let r = ui.add(
-                    TextEdit::singleline(name)
-                        .hint_text(default_sound_name())
+                    TextEdit::singleline(&mut dlg.text)
+                        .hint_text(hint)
                         .desired_width(f32::INFINITY)
                         .font(font(15.0))
                         .margin(Margin::symmetric(10, 8)),
@@ -685,13 +877,21 @@ impl SoundApp {
                 if focus {
                     r.request_focus();
                 }
+                if r.changed() {
+                    dlg.error = None;
+                }
                 if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                    save = true;
+                    submit = true;
+                }
+                if let Some(err) = &dlg.error {
+                    ui.add_space(4.0);
+                    ui.label(RichText::new(err.as_str()).font(font(12.5)).color(DANGER));
                 }
                 ui.add_space(14.0);
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if widgets::button(ui, t("save"), Some(Icon::Save), Style::Primary, 110.0).clicked() {
-                        save = true;
+                    let ok = if matches!(dlg.kind, DialogKind::SaveSound) { t("save") } else { "OK" };
+                    if widgets::button(ui, ok, Some(Icon::Save), Style::Primary, 110.0).clicked() {
+                        submit = true;
                     }
                     if widgets::button(ui, t("cancel"), None, Style::Ghost, 100.0).clicked() {
                         close = true;
@@ -701,12 +901,24 @@ impl SoundApp {
         if modal.should_close() {
             close = true;
         }
-        if save {
-            let name = name.clone();
-            self.save_name = None;
-            self.core.save_as_sound(&name);
+        if submit {
+            let result = match &dlg.kind {
+                DialogKind::SaveSound => {
+                    self.core.save_as_sound(&dlg.text);
+                    Ok(())
+                }
+                DialogKind::NewCollection { assign } => self.core.create_collection(&dlg.text, *assign),
+                DialogKind::RenameCollection(old) => self.core.rename_collection(old, &dlg.text),
+            };
+            match result {
+                Ok(()) => self.dialog = None,
+                Err(e) => {
+                    dlg.error = Some(e);
+                    dlg.focus = true;
+                }
+            }
         } else if close {
-            self.save_name = None;
+            self.dialog = None;
         }
     }
 }
@@ -772,7 +984,7 @@ impl eframe::App for SoundApp {
                     .show(ui, |ui| self.clip_card(ui, time));
                 self.sounds_card(ui, time);
             });
-        self.save_modal(&ctx);
+        self.name_modal(&ctx);
     }
 
     fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {

@@ -230,7 +230,9 @@ impl Hotkeys {
                     parts.join("+")
                 }
             };
-            if let Some(tx) = self.capture.lock().take() {
+            // o lock e solto antes de devolver o canal (dentro do `if let` ele ainda estaria preso)
+            let capture = self.capture.lock().take();
+            if let Some(tx) = capture {
                 if modifier_of(vk).is_some() {
                     // so um modificador: continua esperando a tecla de verdade
                     *self.capture.lock() = Some(tx);
@@ -238,6 +240,9 @@ impl Hotkeys {
                 }
                 let _ = tx.send(if vk == VK_ESCAPE && held.is_empty() { None } else { Some(combo) });
                 continue;
+            }
+            if debug() {
+                eprintln!("hotkeys: {combo}");
             }
             let actions = self.bindings.lock().get(&combo).cloned();
             for action in actions.unwrap_or_default() {
@@ -248,6 +253,12 @@ impl Hotkeys {
 }
 
 static HOOK_TX: OnceLock<mpsc::Sender<(u32, bool)>> = OnceLock::new();
+
+/// `SOUNDMOD_DEBUG_KEYS=1` mostra no stderr o que o gancho recebe (diagnostico).
+fn debug() -> bool {
+    static DEBUG: OnceLock<bool> = OnceLock::new();
+    *DEBUG.get_or_init(|| std::env::var_os("SOUNDMOD_DEBUG_KEYS").is_some())
+}
 
 #[cfg(windows)]
 mod hook {
@@ -268,6 +279,9 @@ mod hook {
             // SAFETY: com HC_ACTION, lparam aponta para um KBDLLHOOKSTRUCT valido.
             let info = unsafe { &*(lparam as *const KBDLLHOOKSTRUCT) };
             let msg = wparam as u32;
+            if super::debug() {
+                eprintln!("hook: vk {:#x} msg {msg:#x} flags {:#x}", info.vkCode, info.flags);
+            }
             let down = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN;
             if down || msg == WM_KEYUP || msg == WM_SYSKEYUP {
                 if let Some(tx) = HOOK_TX.get() {
@@ -286,12 +300,22 @@ mod hook {
                 // SAFETY: chamadas Win32 na propria thread, que mantem o laco de mensagens que o
                 // gancho de baixo nivel exige.
                 let hook = SetWindowsHookExW(WH_KEYBOARD_LL, Some(proc), GetModuleHandleW(null()), 0);
+                if super::debug() {
+                    eprintln!("hotkeys: gancho {hook:?}");
+                }
                 if hook.is_null() {
                     eprintln!("hotkeys: SetWindowsHookExW falhou");
                     return;
                 }
                 let mut msg: MSG = std::mem::zeroed();
-                while GetMessageW(&mut msg, null_mut(), 0, 0) > 0 {
+                loop {
+                    let r = GetMessageW(&mut msg, null_mut(), 0, 0);
+                    if r <= 0 {
+                        if super::debug() {
+                            eprintln!("hotkeys: GetMessageW = {r}, laco encerrado");
+                        }
+                        break;
+                    }
                     TranslateMessage(&msg);
                     DispatchMessageW(&msg);
                 }

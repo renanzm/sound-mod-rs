@@ -12,7 +12,8 @@ use parking_lot::Mutex;
 use crate::config::{self, Config, Slot};
 use crate::engine::{CLIP, ChannelId, Engine};
 use crate::hotkeys::{Action, Hotkeys};
-use crate::i18n::{t, tf};
+use crate::i18n::{self, t, tf};
+use crate::library::{self, NameError};
 use crate::recorder::Recorder;
 
 /// Qual tecla configuravel esta sendo trocada.
@@ -230,18 +231,19 @@ impl Core {
         }
     }
 
-    /// Usa o primeiro slot sem arquivo (mantem a tecla dele) ou cria um slot novo.
-    pub fn add_sound(self: &Arc<Self>, path: String) -> u64 {
+    /// Usa o primeiro slot sem arquivo do mesmo grupo (mantem a tecla dele) ou cria um slot
+    /// novo no fim do grupo.
+    pub fn add_sound(self: &Arc<Self>, path: String, collection: Option<String>) -> u64 {
         let id = {
             let mut cfg = self.cfg.lock();
-            match cfg.slots.iter_mut().find(|s| s.path.is_empty()) {
+            match cfg.slots.iter_mut().find(|s| s.path.is_empty() && s.collection == collection) {
                 Some(s) => {
                     s.path = path.clone();
                     s.id
                 }
                 None => {
                     let id = self.next_id.fetch_add(1, Ordering::Relaxed);
-                    cfg.slots.push(Slot { key: String::new(), path: path.clone(), volume: 1.0, id });
+                    cfg.slots.push(Slot { path: path.clone(), collection, id, ..Slot::default() });
                     id
                 }
             }
@@ -251,17 +253,97 @@ impl Core {
         id
     }
 
-    pub fn add_sounds(self: &Arc<Self>, paths: Vec<String>) {
+    /// "Adicionar som" (collection None) ou o "+ Som" de uma colecao.
+    pub fn add_sounds(self: &Arc<Self>, paths: Vec<String>, collection: Option<String>) {
         if paths.is_empty() {
             return;
         }
         let n = paths.len();
         for p in paths {
-            self.add_sound(p);
+            self.add_sound(p, collection.clone());
+        }
+        if let Some(name) = &collection {
+            library::set_collapsed(&mut self.cfg.lock(), name, false);
         }
         self.register_hotkeys();
         self.save_cfg();
         self.say(tf("sounds_added", &[("n", &n)]));
+    }
+
+    // ---- ordem e colecoes ----
+    pub fn move_slot(&self, id: u64, delta: isize) {
+        if library::move_slot(&mut self.cfg.lock(), id, delta) {
+            self.save_cfg();
+        }
+    }
+
+    pub fn set_slot_collection(&self, id: u64, name: Option<String>) {
+        let sound = {
+            let mut cfg = self.cfg.lock();
+            if library::set_collection(&mut cfg, id, name.as_deref()) != Ok(true) {
+                return;
+            }
+            if let Some(n) = &name {
+                library::set_collapsed(&mut cfg, n, false); // para o som nao sumir da vista
+            }
+            cfg.slots.iter().find(|s| s.id == id).map(|s| config::file_name(&s.path)).unwrap_or_default()
+        };
+        self.save_cfg();
+        let sound = if sound.is_empty() { t("no_file").to_string() } else { sound };
+        let target = name.unwrap_or_else(|| t("ungrouped").to_string());
+        self.say(tf("moved_to", &[("sound", &sound), ("name", &target)]));
+    }
+
+    /// Valida o nome de uma colecao; o erro ja vem traduzido.
+    pub fn check_collection_name(&self, name: &str, current: Option<&str>) -> Result<String, String> {
+        let reserved: Vec<&str> = i18n::LANGUAGES.iter().map(|(l, _, _)| i18n::t_in(*l, "no_collection")).collect();
+        library::clean_name(&self.cfg.lock(), name, current, &reserved).map_err(|(err, name)| match err {
+            NameError::Empty => t("collection_empty").to_string(),
+            NameError::Exists => tf("collection_exists", &[("name", &name)]),
+        })
+    }
+
+    /// Cria a colecao; `assign` = som que ja vai para ela.
+    pub fn create_collection(&self, name: &str, assign: Option<u64>) -> Result<(), String> {
+        let name = self.check_collection_name(name, None)?;
+        library::add_collection(&mut self.cfg.lock(), &name);
+        self.save_cfg();
+        self.say(tf("collection_created", &[("name", &name)]));
+        if let Some(id) = assign {
+            self.set_slot_collection(id, Some(name));
+        }
+        Ok(())
+    }
+
+    pub fn rename_collection(&self, old: &str, new: &str) -> Result<(), String> {
+        let new = self.check_collection_name(new, Some(old))?;
+        if new != old {
+            library::rename_collection(&mut self.cfg.lock(), old, &new);
+            self.save_cfg();
+            self.say(tf("collection_renamed", &[("old", &old), ("name", &new)]));
+        }
+        Ok(())
+    }
+
+    pub fn delete_collection(&self, name: &str) {
+        library::delete_collection(&mut self.cfg.lock(), name);
+        self.save_cfg();
+        self.say(tf("collection_deleted", &[("name", &name)]));
+    }
+
+    pub fn move_collection(&self, name: &str, delta: isize) {
+        if library::move_collection(&mut self.cfg.lock(), name, delta) {
+            self.save_cfg();
+        }
+    }
+
+    pub fn toggle_collection(&self, name: &str) {
+        {
+            let mut cfg = self.cfg.lock();
+            let collapsed = library::find(&cfg, name).is_some_and(|c| c.collapsed);
+            library::set_collapsed(&mut cfg, name, !collapsed);
+        }
+        self.save_cfg();
     }
 
     pub fn set_slot_file(self: &Arc<Self>, id: u64, path: String) {
@@ -373,12 +455,12 @@ impl Core {
             });
             match result {
                 Ok(target) => {
-                    // relativo a pasta do programa: continua valendo se a pasta for copiada
+                    // relativo a pasta de dados: continua valendo se ela for copiada para outro PC
                     let rel = target
-                        .strip_prefix(config::root())
+                        .strip_prefix(config::data_dir())
                         .map(|p| p.to_string_lossy().replace('\\', "/"))
                         .unwrap_or_else(|_| target.to_string_lossy().into_owned());
-                    core.add_sound(rel.clone());
+                    core.add_sound(rel.clone(), None);
                     core.register_hotkeys();
                     core.save_cfg();
                     core.say(tf("sound_saved", &[("name", &config::file_name(&rel))]));
@@ -407,20 +489,5 @@ pub const FX_KEYS: [&str; 9] =
     ["fx_normal", "fx_deep", "fx_high", "fx_robot", "fx_ogre", "fx_autotune", "fx_echo", "fx_radio", "fx_alien"];
 
 pub fn default_sound_name() -> String {
-    #[cfg(windows)]
-    {
-        use windows_sys::Win32::System::SystemInformation::GetLocalTime;
-        // SAFETY: GetLocalTime so preenche a estrutura passada.
-        let st = unsafe {
-            let mut st = std::mem::zeroed();
-            GetLocalTime(&mut st);
-            st
-        };
-        format!("clip-{:04}{:02}{:02}-{:02}{:02}{:02}", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond)
-    }
-    #[cfg(not(windows))]
-    {
-        let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-        format!("clip-{secs}")
-    }
+    format!("clip-{}", config::timestamp())
 }

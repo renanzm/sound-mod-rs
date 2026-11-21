@@ -111,7 +111,7 @@ fn push_stereo(out: &mut Vec<f32>, samples: &[f32], channels: usize) {
 }
 
 fn ffmpeg_exe() -> Option<std::path::PathBuf> {
-    let local = config::root().join("ffmpeg.exe");
+    let local = config::app_dir().join("ffmpeg.exe");
     if local.exists() {
         return Some(local);
     }

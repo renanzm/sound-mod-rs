@@ -21,6 +21,11 @@ pub enum Icon {
     Power,
     Waves,
     Sliders,
+    ChevronDown,
+    ChevronRight,
+    ArrowUp,
+    ArrowDown,
+    Layers,
 }
 
 /// Desenha o icone centralizado em `rect`, ocupando o lado menor.
@@ -117,6 +122,15 @@ pub fn paint(p: &Painter, rect: Rect, icon: Icon, color: Color32) {
                 let x = 0.2 + i as f32 * 0.15;
                 p.line_segment([at(x, 0.5 - h), at(x, 0.5 + h)], Stroke::new(w * 1.3, color));
             }
+        }
+        Icon::ChevronDown => line(&[(0.24, 0.38), (0.5, 0.64), (0.76, 0.38)]),
+        Icon::ChevronRight => line(&[(0.38, 0.24), (0.64, 0.5), (0.38, 0.76)]),
+        Icon::ArrowUp => fill(&[(0.5, 0.26), (0.8, 0.7), (0.2, 0.7)]),
+        Icon::ArrowDown => fill(&[(0.2, 0.3), (0.8, 0.3), (0.5, 0.74)]),
+        Icon::Layers => {
+            closed(&[(0.5, 0.16), (0.86, 0.34), (0.5, 0.52), (0.14, 0.34)]);
+            line(&[(0.14, 0.5), (0.5, 0.68), (0.86, 0.5)]);
+            line(&[(0.14, 0.66), (0.5, 0.84), (0.86, 0.66)]);
         }
         Icon::Sliders => {
             for (i, k) in [0.35, 0.65, 0.45].iter().enumerate() {

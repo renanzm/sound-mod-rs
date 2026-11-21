@@ -29,7 +29,7 @@ const PT: &[(&str, &str)] = &[
     ("apply", "Aplicar / Reiniciar"),
     ("no_cable", "Cabo virtual não encontrado. Instale o VB-CABLE (vb-audio.com/Cable), reinicie o app e use 'CABLE Output' como microfone no Discord/jogo."),
     ("sounds", "Sons"),
-    ("sounds_hint", "▶ toca/para  ·  ✎ muda a tecla  ·  ⌫ remove a tecla  ·  um som por vez"),
+    ("sounds_hint", "▶ toca/para  ·  ✎ muda a tecla  ·  ⌫ remove a tecla  ·  ▲▼ muda a ordem  ·  um som por vez"),
     ("add_sound", "Adicionar som"),
     ("no_file", "(sem arquivo)"),
     ("audio_files", "Áudio"),
@@ -88,6 +88,29 @@ const PT: &[(&str, &str)] = &[
     ("sound_saved", "Som salvo e adicionado: {name}"),
     ("sound_save_error", "Erro ao salvar som: {e}"),
     ("sounds_added", "Sons adicionados: {n}"),
+    ("new_collection", "Nova coleção"),
+    ("add_here", "Som"),
+    ("no_collection", "(sem coleção)"),
+    ("ungrouped", "Sem coleção"),
+    ("collection_name", "Nome da coleção:"),
+    ("new_collection_title", "Nova coleção"),
+    ("rename_collection_title", "Renomear coleção {name}"),
+    ("collection_empty", "O nome da coleção não pode ficar vazio."),
+    ("collection_exists", "Já existe uma coleção chamada {name}."),
+    ("collection_created", "Coleção criada: {name}"),
+    ("collection_renamed", "Coleção renomeada: {old} → {name}"),
+    ("collection_deleted", "Coleção apagada: {name}. Os sons dela foram para Sem coleção."),
+    ("moved_to", "{sound} → {name}"),
+    ("config_imported", "Configuração da versão anterior importada de {path}"),
+    ("data_folder", "Pasta de dados"),
+    ("tip_up", "Subir na lista"),
+    ("tip_down", "Descer na lista"),
+    ("tip_collection", "Coleção deste som"),
+    ("tip_collapse", "Recolher / expandir"),
+    ("tip_add_here", "Adicionar sons nesta coleção"),
+    ("tip_rename_collection", "Renomear a coleção"),
+    ("tip_delete_collection", "Apagar a coleção (os sons vão para Sem coleção)"),
+    ("tip_data_folder", "Abrir {path}"),
     ("tagline", "Soundboard direto no seu microfone"),
     ("devices", "Dispositivos"),
     ("live", "Ao vivo"),
@@ -123,7 +146,7 @@ const EN: &[(&str, &str)] = &[
     ("apply", "Apply / Restart"),
     ("no_cable", "Virtual cable not found. Install VB-CABLE (vb-audio.com/Cable), restart the app and use 'CABLE Output' as the microphone in Discord/your game."),
     ("sounds", "Sounds"),
-    ("sounds_hint", "▶ play/stop  ·  ✎ change key  ·  ⌫ remove key  ·  one sound at a time"),
+    ("sounds_hint", "▶ play/stop  ·  ✎ change key  ·  ⌫ remove key  ·  ▲▼ change order  ·  one sound at a time"),
     ("add_sound", "Add sound"),
     ("no_file", "(no file)"),
     ("audio_files", "Audio"),
@@ -182,6 +205,29 @@ const EN: &[(&str, &str)] = &[
     ("sound_saved", "Sound saved and added: {name}"),
     ("sound_save_error", "Error saving sound: {e}"),
     ("sounds_added", "Sounds added: {n}"),
+    ("new_collection", "New collection"),
+    ("add_here", "Sound"),
+    ("no_collection", "(no collection)"),
+    ("ungrouped", "No collection"),
+    ("collection_name", "Collection name:"),
+    ("new_collection_title", "New collection"),
+    ("rename_collection_title", "Rename collection {name}"),
+    ("collection_empty", "The collection name can't be empty."),
+    ("collection_exists", "There is already a collection called {name}."),
+    ("collection_created", "Collection created: {name}"),
+    ("collection_renamed", "Collection renamed: {old} → {name}"),
+    ("collection_deleted", "Collection deleted: {name}. Its sounds moved to No collection."),
+    ("moved_to", "{sound} → {name}"),
+    ("config_imported", "Settings from the previous version imported from {path}"),
+    ("data_folder", "Data folder"),
+    ("tip_up", "Move up"),
+    ("tip_down", "Move down"),
+    ("tip_collection", "Collection of this sound"),
+    ("tip_collapse", "Collapse / expand"),
+    ("tip_add_here", "Add sounds to this collection"),
+    ("tip_rename_collection", "Rename the collection"),
+    ("tip_delete_collection", "Delete the collection (its sounds move to No collection)"),
+    ("tip_data_folder", "Open {path}"),
     ("tagline", "Soundboard straight into your mic"),
     ("devices", "Devices"),
     ("live", "Live"),
@@ -237,7 +283,12 @@ pub fn display_name(lang: Lang) -> &'static str {
 
 /// Texto da chave no idioma atual (a propria chave se ela nao existir).
 pub fn t(key: &'static str) -> &'static str {
-    let table = if current() == Lang::Pt { PT } else { EN };
+    t_in(current(), key)
+}
+
+/// Texto da chave num idioma especifico.
+pub fn t_in(lang: Lang, key: &'static str) -> &'static str {
+    let table = if lang == Lang::Pt { PT } else { EN };
     table.iter().find(|(k, _)| *k == key).map(|(_, v)| *v).unwrap_or(key)
 }
 
