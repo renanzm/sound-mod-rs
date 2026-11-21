@@ -40,7 +40,8 @@ sound-mod-rs/
 ├── build.rs                # grava ícone + versão no .exe (gera o .res sem rc.exe)
 ├── rust-toolchain.toml     # stable GNU + llvm-tools
 ├── .cargo/config.toml      # linker rust-lld
-├── docs/                   # este manual (pt/en) e as capturas de tela
+├── docs/                   # manual de uso e este manual (pt/en), capturas de tela
+├── tools/                  # modelo do manual em HTML offline
 └── src/
     ├── main.rs             # janela (eframe), log de pânico
     ├── config.rs           # config.json, pastas (%APPDATA%\SoundMod), importacao da versao antiga
@@ -181,6 +182,7 @@ O que a interface e as hotkeys fazem: tocar/parar slots, salvar/tocar o clipe, s
 - O toolchain **GNU** não exige o Visual Studio. O `rust-toolchain.toml` fixa `stable-x86_64-pc-windows-gnu` com `llvm-tools`.
 - As crates `windows*` importam funções por `raw-dylib`, que pede um **dlltool**. O do pacote GNU precisa do assembler `as`, que não vem junto; o `build.ps1` usa o `llvm-ar` do `llvm-tools` renomeado para `dlltool.exe` (ele vira o `llvm-dlltool`).
 - O **GNU ld** embutido liga essas bibliotecas de importação de forma errada: o programa abre e quebra com acesso inválido (salto para um endereço de importação não resolvido). Com o **rust-lld** (`.cargo/config.toml`) a ligação sai certa.
+- `build.ps1 -Package` gera o `.zip` da release: `SoundMod.exe`, `LICENSE.txt` e os manuais de uso em HTML offline (Markdown renderizado pela API `/markdown` do GitHub, com âncoras nos títulos, print embutido, dentro de `tools/manual-template.html`), e mostra os SHA-256.
 - `build.rs` monta o `.res` (ícone 16–256 px + VERSIONINFO) em Rust e passa ao linker, sem `rc.exe`/`windres`.
 
 ## 6. Testes

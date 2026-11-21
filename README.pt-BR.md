@@ -12,7 +12,7 @@ Também grava os **últimos segundos do áudio do PC** (padrão 5 s) para você 
 
 - **Hotkeys globais**: F1, F2, F3... tocam sons diferentes mesmo com o app em segundo plano **ou minimizado**. Aperte uma vez para tocar e de novo para parar. As teclas podem ser trocadas (Esc cancela) ou removidas, e combinações como `Ctrl+1` funcionam. O gancho só observa: a tecla continua chegando ao jogo.
 - **Mic + sons juntos**: mistura seu microfone real com os sons, sem trocar de dispositivo.
-- **Vários formatos, nada para instalar**: mp3, wav, ogg, flac, m4a/aac, opus, aiff... decodificados nativamente. Para o resto (ex.: wma), coloque um `ffmpeg.exe` ao lado do programa.
+- **Vários formatos, nada para instalar**: mp3, wav, ogg (Vorbis), flac, m4a/aac, aiff... decodificados nativamente. Para o resto (ex.: wma, opus), coloque um `ffmpeg.exe` ao lado do programa.
 - **Controle por som**: ▶ tocar, ⏸ pausar/continuar, ■ parar, barra de progresso arrastável e volume individual ao vivo.
 - **Um som por vez**: tocar um som interrompe o atual.
 - **Vários arquivos de uma vez**: o **Adicionar som** aceita vários arquivos; eles ocupam primeiro os slots vazios.
@@ -41,12 +41,16 @@ Sons (F1, F2...) ┘      └─► seus fones (monitor)
 
 ## Instalação
 
-> **Ainda sem release.** O projeto está sendo refinado antes da v1.0; por enquanto, compile a partir do código como descrito abaixo.
+1. Instale o cabo virtual [VB-CABLE](https://vb-audio.com/Cable/) (gratuito) e **reinicie o PC**. O manual explica [o que ele é e como instalar](docs/MANUAL.pt-BR.md#2-o-cabo-virtual-vb-cable).
+2. Baixe o **`SoundMod-v1.0.0-windows-x64.zip`** (programa + manual offline) ou só o **`SoundMod.exe`** na **[última release](https://github.com/renanzm/sound-mod-rs/releases/latest)**.
+3. Extraia numa pasta sua e abra o `SoundMod.exe`. Não precisa instalar mais nada. Configurações, clipes e sons ficam em `%APPDATA%\SoundMod`.
 
-1. Instale o [VB-CABLE](https://vb-audio.com/Cable/) (gratuito) e reinicie o PC.
-2. Compile o programa (abaixo) e abra `dist\SoundMod\SoundMod.exe`. Configurações, clipes e sons salvos ficam em `%APPDATA%\SoundMod`.
+> [!NOTE]
+> O programa ainda não é assinado digitalmente, então o SmartScreen do Windows pode dizer "O Windows protegeu o computador" na primeira vez: clique em **Mais informações → Executar assim mesmo**.
 
-### Compilar
+**Guia completo:** o **[manual de uso](docs/MANUAL.pt-BR.md)** explica o cabo virtual, a primeira configuração, Discord e jogos, todas as funções e a solução de problemas.
+
+### Compilar a partir do código
 
 Requer Windows 10/11 e o [rustup](https://rustup.rs). **Não precisa do Visual Studio.**
 
@@ -54,7 +58,7 @@ Requer Windows 10/11 e o [rustup](https://rustup.rs). **Não precisa do Visual S
 powershell -ExecutionPolicy Bypass -File build.ps1
 ```
 
-Gera `dist\SoundMod\SoundMod.exe` (seus dados ficam em `%APPDATA%\SoundMod`, então recompilar nunca mexe neles). Outros modos: `build.ps1 -Run` (compila em debug e abre), `build.ps1 -Test` (testes), `build.ps1 -Test -Hardware` (também toca um tom curto e baixo no VB-CABLE e grava de volta para conferir todo o caminho do áudio; nada sai nos seus alto-falantes).
+Gera `dist\SoundMod\SoundMod.exe` (seus dados ficam em `%APPDATA%\SoundMod`, então recompilar nunca mexe neles). Outros modos: `build.ps1 -Run` (compila em debug e abre), `build.ps1 -Test` (testes), `build.ps1 -Package` (`.zip` da release com o exe e os manuais em HTML), `build.ps1 -Test -Hardware` (também toca um tom curto e baixo no VB-CABLE e grava de volta para conferir todo o caminho do áudio; nada sai nos seus alto-falantes).
 
 O projeto usa o toolchain GNU do Rust (fixado no `rust-toolchain.toml`) com o linker `rust-lld` do LLVM, ambos instalados pelo rustup. O `build.ps1` também prepara o `dlltool` que as crates do Windows exigem (é o `llvm-ar` do componente `llvm-tools`).
 
@@ -75,12 +79,14 @@ Esta é uma reescrita em Rust do [Sound Mod (Python)](https://github.com/renanzm
 
 ## Documentação
 
-Manual de arquitetura e desenvolvimento: [docs/ARQUITETURA.md](docs/ARQUITETURA.md) (também em [inglês](docs/ARCHITECTURE.md)).
+- **[Manual de uso](docs/MANUAL.pt-BR.md)** (também em [inglês](docs/MANUAL.md)): instalação, cabo virtual, configuração, funções e solução de problemas.
+- **[Manual de arquitetura e desenvolvimento](docs/ARQUITETURA.md)** (também em [inglês](docs/ARCHITECTURE.md)).
 
 ## Limitações conhecidas
 
 - Só Windows (WASAPI, gancho de teclado de baixo nível, estilo de janela do DWM).
 - Requer o VB-CABLE (ou outro cabo virtual).
+- O `.exe` ainda não é assinado digitalmente, então o SmartScreen pode avisar na primeira vez.
 - Para capturar teclas com um jogo rodando como administrador em foco, rode o Sound Mod como administrador.
 - O loopback do WASAPI não entrega nada enquanto o PC está em silêncio, então o clipe pode sair vazio ("Nada gravado ainda").
 

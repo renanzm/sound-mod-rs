@@ -41,11 +41,13 @@ impl Recorder {
 
     /// Comeca a gravar o dispositivo pelo nome (None = alto-falante padrao).
     pub fn start(self: &Arc<Self>, device: Option<&str>) -> Result<cpal::Stream, String> {
+        // (pode demorar como o Engine::open: chamar fora da thread da janela)
         let host = cpal::default_host();
         let dev = match device {
             Some(name) => find_device(&host, name, false)?,
             None => host.default_output_device().ok_or_else(|| t("select_output").to_string())?,
         };
+        crate::engine::trace("loopback: lendo formato");
         let supported = dev.default_output_config().map_err(|e| e.to_string())?;
         let config = supported.config();
         {
@@ -61,7 +63,9 @@ impl Recorder {
             SampleFormat::U8 => self.stream::<u8>(&dev, config),
             other => Err(format!("{other:?}")),
         }?;
+        crate::engine::trace("loopback: iniciando");
         stream.play().map_err(|e| e.to_string())?;
+        crate::engine::trace("loopback: ok");
         Ok(stream)
     }
 

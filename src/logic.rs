@@ -79,6 +79,11 @@ impl Core {
         self.repaint();
     }
 
+    /// So pede um novo quadro (ex.: um resultado chegou de outra thread).
+    pub fn say_quiet(&self) {
+        self.repaint();
+    }
+
     pub fn status(&self) -> String {
         self.status.lock().clone()
     }

@@ -40,7 +40,8 @@ sound-mod-rs/
 ├── build.rs                # embeds icon + version in the .exe (writes the .res without rc.exe)
 ├── rust-toolchain.toml     # stable GNU + llvm-tools
 ├── .cargo/config.toml      # rust-lld linker
-├── docs/                   # this guide (en/pt) and the screenshots
+├── docs/                   # user manual and this guide (en/pt), screenshots
+├── tools/                  # template of the offline HTML manual
 └── src/
     ├── main.rs             # window (eframe), panic log
     ├── config.rs           # config.json, folders (%APPDATA%\SoundMod), import from older versions
@@ -182,6 +183,7 @@ What the interface and the hotkeys do: play/stop slots, save/play the clip, save
 - The **GNU** toolchain doesn't require Visual Studio. `rust-toolchain.toml` pins `stable-x86_64-pc-windows-gnu` with `llvm-tools`.
 - The `windows*` crates import functions through `raw-dylib`, which needs a **dlltool**. The one in the GNU package needs the `as` assembler, which isn't included; `build.ps1` uses `llvm-ar` from `llvm-tools` renamed to `dlltool.exe` (it then acts as `llvm-dlltool`).
 - The bundled **GNU ld** links those import libraries incorrectly: the program starts and crashes with an access violation (a jump to an unresolved import address). With **rust-lld** (`.cargo/config.toml`) linking is correct.
+- `build.ps1 -Package` makes the release `.zip`: `SoundMod.exe`, `LICENSE.txt` and the user manuals as offline HTML (Markdown rendered by GitHub's `/markdown` API, heading anchors added, screenshot embedded, wrapped in `tools/manual-template.html`), and prints the SHA-256 hashes.
 - `build.rs` builds the `.res` (16–256 px icon + VERSIONINFO) in Rust and hands it to the linker, without `rc.exe`/`windres`.
 
 ## 6. Tests

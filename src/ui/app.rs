@@ -5,7 +5,9 @@
 
 use std::sync::Arc;
 use std::sync::mpsc::{self, TryRecvError};
-use std::time::Duration;
+use std::time::{Duration, Instant};
+
+use parking_lot::Mutex;
 
 use eframe::egui::{
     self, Align, Align2, CentralPanel, Color32, ComboBox, Frame, Id, Layout, Margin, Panel, RichText, ScrollArea,
@@ -48,6 +50,22 @@ enum RowAction {
     DeleteCollection(String),
 }
 
+/// Resultado da abertura dos dispositivos (feita numa thread).
+struct Opened {
+    streams: Result<engine::OpenedStreams, String>,
+    loopback: Result<cpal::Stream, String>,
+}
+
+/// Abertura em andamento: o resultado chega pelo canal; `step` diz qual dispositivo esta sendo
+/// aberto agora (para avisar se ele demorar).
+struct Opening {
+    rx: mpsc::Receiver<Opened>,
+    step: Arc<Mutex<String>>,
+    started: Instant,
+    warned: bool,
+    msgs: Vec<String>,
+}
+
 /// Para que serve a janelinha de nome aberta.
 enum DialogKind {
     SaveSound,
@@ -83,6 +101,7 @@ pub struct SoundApp {
     secs_text: String,
     /// Aviso unico na barra de status (config da versao anterior importada).
     notice: Option<String>,
+    opening: Option<Opening>,
 }
 
 impl SoundApp {
@@ -140,6 +159,7 @@ impl SoundApp {
             dialog: None,
             secs_text,
             notice,
+            opening: None,
         };
         app.start_all();
         // sons de configs antigas que estao fora da pasta de sons: copia uma vez (depois do
@@ -149,6 +169,9 @@ impl SoundApp {
     }
 
     /// Botao "Aplicar / Reiniciar" e inicio: reabre o audio e a gravacao com a config atual.
+    ///
+    /// Os dispositivos abrem numa thread: um driver que nao responde nao congela a janela.
+    /// Um novo Aplicar substitui uma abertura que ainda nao terminou.
     fn start_all(&mut self) {
         self.core.apply_live();
         let (mic, out, mut mon, loopback) = {
@@ -157,6 +180,9 @@ impl SoundApp {
             (named(&cfg.mic_device), named(&cfg.output_device), named(&cfg.monitor_device), cfg.loopback_device.clone())
         };
         let mut msgs: Vec<String> = Vec::new();
+        if let Some(notice) = self.notice.take() {
+            msgs.push(notice);
+        }
         if out.as_deref().is_some_and(|o| !o.contains("CABLE")) {
             msgs.push(t("warn_output").into());
         }
@@ -165,29 +191,77 @@ impl SoundApp {
             msgs.push(t("monitor_off").into());
             mon = None;
         }
+        engine::trace("fechando streams anteriores");
         self.core.engine.close(&mut self.streams);
-        match self.core.engine.open(mic.as_deref(), out.as_deref(), mon.as_deref()) {
-            Ok(streams) => {
-                self.streams = streams;
-                msgs.push(t("audio_on").into());
-            }
-            Err(e) => msgs.push(tf("audio_error", &[("e", &e)])),
-        }
         self.loopback = None;
-        match self.core.recorder.start(loopback.as_deref()) {
-            Ok(s) => {
-                self.loopback = Some(s);
-                msgs.push(t("capture_on").into());
-            }
-            Err(e) => msgs.push(tf("capture_error", &[("e", &e)])),
-        }
-        if let Some(notice) = self.notice.take() {
-            msgs.insert(0, notice);
-        }
+
+        let (tx, rx) = mpsc::channel();
+        let step = Arc::new(Mutex::new(String::new()));
+        let (engine, recorder, worker_step) = (self.core.engine.clone(), self.core.recorder.clone(), step.clone());
+        let repaint = self.core.clone();
+        std::thread::Builder::new()
+            .name("open-audio".into())
+            .spawn(move || {
+                let streams = engine.open(mic.as_deref(), out.as_deref(), mon.as_deref(), &worker_step);
+                *worker_step.lock() = loopback.clone().unwrap_or_else(|| t("default_speaker").to_string());
+                engine::trace("audio aberto; abrindo loopback");
+                let loopback = recorder.start(loopback.as_deref());
+                // se outro Aplicar ja substituiu esta abertura, o envio falha e os streams fecham aqui
+                let _ = tx.send(Opened { streams, loopback });
+                repaint.say_quiet();
+            })
+            .expect("thread open-audio");
+        self.opening = Some(Opening { rx, step, started: Instant::now(), warned: false, msgs });
+        self.core.say(t("audio_opening"));
+
         self.core.register_hotkeys();
         self.core.save_cfg();
         self.core.load_missing();
-        self.core.say(msgs.join("  |  "));
+    }
+
+    /// Recebe os dispositivos abertos pela thread (chamado a cada quadro).
+    fn poll_opening(&mut self) {
+        let Some(op) = self.opening.as_mut() else { return };
+        match op.rx.try_recv() {
+            Ok(opened) => {
+                let mut msgs = std::mem::take(&mut op.msgs);
+                self.opening = None;
+                match opened.streams {
+                    Ok(opened) => {
+                        self.streams = opened.streams;
+                        self.core.engine.activate(opened.has_monitor);
+                        msgs.push(t("audio_on").into());
+                        msgs.extend(opened.warnings);
+                    }
+                    Err(e) => {
+                        engine::trace(&format!("erro ao abrir o audio: {e}"));
+                        msgs.push(tf("audio_error", &[("e", &e)]));
+                    }
+                }
+                match opened.loopback {
+                    Ok(s) => {
+                        self.loopback = Some(s);
+                        msgs.push(t("capture_on").into());
+                    }
+                    Err(e) => {
+                        engine::trace(&format!("erro no loopback: {e}"));
+                        msgs.push(tf("capture_error", &[("e", &e)]));
+                    }
+                }
+                self.core.say(msgs.join("  |  "));
+            }
+            Err(TryRecvError::Empty) => {
+                if !op.warned && op.started.elapsed() > Duration::from_secs(5) {
+                    op.warned = true;
+                    let device = op.step.lock().clone();
+                    self.core.say(tf("audio_slow", &[("device", &device)]));
+                }
+            }
+            Err(TryRecvError::Disconnected) => {
+                self.opening = None;
+                self.core.say(tf("audio_error", &[("e", &"?")]));
+            }
+        }
     }
 
     fn poll_capture(&mut self) {
@@ -1009,6 +1083,7 @@ impl eframe::App for SoundApp {
         let time = ctx.input(|i| i.time);
         ctx.request_repaint_after(Duration::from_millis(33));
         self.poll_capture();
+        self.poll_opening();
         if self.core.engine.take_device_lost() {
             self.core.say(t("device_lost"));
         }

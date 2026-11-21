@@ -1,0 +1,70 @@
+<!doctype html>
+<!-- Modelo do manual offline que vai no .zip da release. O build.ps1 -Package troca
+     {{LANG}}, {{TITLE}}, {{VERSION}} e {{BODY}} (o manual em Markdown renderizado). -->
+<html lang="{{LANG}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<style>
+  :root {
+    --bg: #0a0c0e; --panel: #121518; --item: #191d21; --border: #262d33;
+    --text: #e3f0e6; --muted: #84938a; --neon: #39ff14; --core: #c8ffb8;
+    --note: #00e5ff; --tip: #39ff14; --important: #b03cff; --warning: #ffd23f; --caution: #ff3b5c;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.65 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    background-image: radial-gradient(ellipse 60% 220px at 18% 0, rgba(57, 255, 20, .10), transparent),
+                      linear-gradient(rgba(255,255,255,.015) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,255,255,.015) 1px, transparent 1px);
+    background-size: auto, 34px 34px, 34px 34px;
+  }
+  main {
+    max-width: 920px; margin: 32px auto; padding: 28px 40px 40px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 18px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.5);
+  }
+  @media (max-width: 700px) { main { margin: 0; border-radius: 0; padding: 20px 16px; } }
+  h1, h2, h3 { font-family: "Bahnschrift", "Segoe UI", sans-serif; line-height: 1.25; scroll-margin-top: 16px; }
+  h1 {
+    font-size: 2.1em; letter-spacing: .04em; color: var(--core); margin: .2em 0 .4em;
+    text-shadow: 0 0 6px rgba(57, 255, 20, .55), 0 0 22px rgba(57, 255, 20, .35);
+  }
+  h2 { font-size: 1.45em; margin-top: 2.2em; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+  h2::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 12px; border-radius: 50%;
+               background: var(--neon); box-shadow: 0 0 10px var(--neon); vertical-align: middle; }
+  h3 { font-size: 1.15em; margin-top: 1.6em; color: var(--core); }
+  a { color: var(--neon); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  strong { color: #fff; }
+  img { max-width: 100%; border-radius: 12px; border: 1px solid var(--border); }
+  hr { border: 0; border-top: 1px solid var(--border); margin: 2em 0; }
+  code { font-family: "Cascadia Mono", Consolas, monospace; font-size: .9em; background: var(--item);
+         border: 1px solid var(--border); border-radius: 6px; padding: .1em .4em; }
+  pre { background: #0d1012; border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; border: 0; padding: 0; font-size: .85em; color: var(--core); }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; display: block; overflow-x: auto; }
+  th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--item); color: var(--core); }
+  tr:nth-child(even) td { background: rgba(255,255,255,.015); }
+  .markdown-alert { margin: 1.2em 0; padding: 10px 16px; border-left: 4px solid var(--c); border-radius: 0 10px 10px 0;
+                    background: color-mix(in srgb, var(--c) 9%, transparent); }
+  .markdown-alert > :last-child { margin-bottom: 0; }
+  .markdown-alert-title { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--c); margin: 0 0 .3em; }
+  .markdown-alert-title svg { fill: currentColor; width: 16px; height: 16px; }
+  .markdown-alert-note { --c: var(--note); } .markdown-alert-tip { --c: var(--tip); }
+  .markdown-alert-important { --c: var(--important); } .markdown-alert-warning { --c: var(--warning); }
+  .markdown-alert-caution { --c: var(--caution); }
+  footer { max-width: 920px; margin: 0 auto 32px; text-align: center; color: var(--muted); font-size: .85em; }
+</style>
+</head>
+<body>
+<main>
+{{BODY}}
+</main>
+<footer>Sound Mod {{VERSION}} · <a href="https://github.com/renanzm/sound-mod-rs">github.com/renanzm/sound-mod-rs</a></footer>
+</body>
+</html>

@@ -25,6 +25,14 @@ pub type ChannelId = u64;
 /// Canal do clipe do audio do PC. Os slots usam ids a partir de 1.
 pub const CLIP: ChannelId = 0;
 
+/// Streams abertos por `Engine::open`. O microfone e o monitor sao opcionais: se falharem, o
+/// resto abre do mesmo jeito (os sons nao dependem deles) e o erro vem em `warnings`.
+pub struct OpenedStreams {
+    pub streams: Vec<cpal::Stream>,
+    pub has_monitor: bool,
+    pub warnings: Vec<String>,
+}
+
 /// Descarta audio acumulado alem de 250 ms (relogios de dispositivos divergem).
 const MAX_LAG: usize = SR as usize / 4;
 
@@ -364,33 +372,65 @@ impl Engine {
     }
 
     /// Abre microfone (opcional), saida (obrigatoria) e monitor (opcional), por nome.
+    ///
+    /// Pode demorar ou travar se um driver nao responder (o Windows nao tem timeout para isso),
+    /// entao roda fora da thread da janela. `step` recebe o nome do dispositivo sendo aberto.
+    /// Nao liga o engine: quem recebe os streams chama `activate`.
     pub fn open(
         self: &Arc<Self>,
         mic: Option<&str>,
         out: Option<&str>,
         mon: Option<&str>,
-    ) -> Result<Vec<cpal::Stream>, String> {
+        step: &Mutex<String>,
+    ) -> Result<OpenedStreams, String> {
         let out = out.ok_or_else(|| t("select_output").to_string())?;
         let host = cpal::default_host();
         let mut streams = Vec::new();
+        let mut warnings = Vec::new();
         if let Some(name) = mic {
-            let dev = find_device(&host, name, true)?;
-            streams.push(self.mic_stream(&dev)?);
+            *step.lock() = name.to_string();
+            trace(&format!("abrindo microfone: {name}"));
+            match find_device(&host, name, true).and_then(|dev| self.mic_stream(&dev)) {
+                Ok(s) => streams.push(s),
+                Err(e) => {
+                    trace(&format!("erro no microfone: {e}"));
+                    warnings.push(tf("mic_error", &[("e", &e)]));
+                }
+            }
         }
+        // a saida para o cabo e a unica obrigatoria
+        *step.lock() = out.to_string();
+        trace(&format!("abrindo saida: {out}"));
         let dev = find_device(&host, out, false)?;
         streams.push(self.output_stream(&dev, false)?);
+        let mut has_monitor = false;
         if let Some(name) = mon {
-            let dev = find_device(&host, name, false)?;
-            streams.push(self.output_stream(&dev, true)?);
+            *step.lock() = name.to_string();
+            trace(&format!("abrindo monitor: {name}"));
+            match find_device(&host, name, false).and_then(|dev| self.output_stream(&dev, true)) {
+                Ok(s) => {
+                    streams.push(s);
+                    has_monitor = true;
+                }
+                Err(e) => {
+                    trace(&format!("erro no monitor: {e}"));
+                    warnings.push(tf("monitor_error", &[("e", &e)]));
+                }
+            }
         }
         self.reset_buffers();
         for s in &streams {
+            trace("iniciando stream");
             s.play().map_err(|e| e.to_string())?;
         }
-        self.has_monitor.store(mon.is_some(), Ordering::Relaxed);
+        Ok(OpenedStreams { streams, has_monitor, warnings })
+    }
+
+    /// Liga o engine com os streams recem-abertos (`open`).
+    pub fn activate(&self, has_monitor: bool) {
+        self.has_monitor.store(has_monitor, Ordering::Relaxed);
         self.running.store(true, Ordering::Relaxed);
         self.device_lost.store(false, Ordering::Relaxed);
-        Ok(streams)
     }
 
     fn error_handler(self: &Arc<Self>) -> impl FnMut(cpal::Error) + Send + 'static {
@@ -570,6 +610,14 @@ pub fn default_device_names() -> (Option<String>, Option<String>) {
     )
 }
 
+/// `SOUNDMOD_DEBUG_AUDIO=1`: mostra no stderr cada passo da abertura dos dispositivos.
+pub fn trace(msg: &str) {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    if *ON.get_or_init(|| std::env::var_os("SOUNDMOD_DEBUG_AUDIO").is_some()) {
+        eprintln!("audio: {msg}");
+    }
+}
+
 pub fn find_device(host: &cpal::Host, name: &str, input: bool) -> Result<cpal::Device, String> {
     let devices = if input { host.input_devices() } else { host.output_devices() };
     devices
@@ -672,7 +720,8 @@ mod tests {
             })
             .collect();
         e.channels.lock().insert(1, Channel { data: Arc::new(tone), pos: 0, start: 0, end: n, gain: 1.0, playing: false });
-        let mut streams = e.open(None, Some(&cable), None).expect("abrir saida");
+        let mut streams = e.open(None, Some(&cable), None, &Mutex::new(String::new())).expect("abrir saida").streams;
+        e.activate(false);
         let rec = Arc::new(crate::recorder::Recorder::new(5));
         let _loopback = rec.start(Some(&cable)).expect("abrir loopback");
         std::thread::sleep(std::time::Duration::from_millis(300));
