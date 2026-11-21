@@ -1,0 +1,7 @@
+# Toolchain GNU sem Visual Studio: o rustup ja traz o rust-lld e o llvm-tools.
+# O GNU ld embutido liga errado as bibliotecas de importacao "raw-dylib" (crates windows*),
+# e o programa quebra ao abrir; o rust-lld (LLVM) liga certo. O dlltool (llvm-ar renomeado) e
+# preparado pelo build.ps1 em target\tools.
+[target.x86_64-pc-windows-gnu]
+linker = "rust-lld"
+rustflags = ["-C", "linker-flavor=ld.lld"]

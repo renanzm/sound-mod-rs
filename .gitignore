@@ -1,0 +1,9 @@
+/target/
+/dist/
+config.json
+config.json.tmp
+soundmod-error.log
+clips/*
+!clips/.gitkeep
+sounds/
+ffmpeg.exe

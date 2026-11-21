@@ -1,0 +1,46 @@
+[package]
+name = "sound-mod"
+version = "1.0.0"
+edition = "2024"
+description = "Windows soundboard that plays sounds straight into your microphone (neon edition, Rust)"
+license = "MIT"
+publish = false
+
+[[bin]]
+name = "SoundMod"
+path = "src/main.rs"
+
+[dependencies]
+eframe = { version = "0.37", default-features = false, features = ["default_fonts", "glow", "accesskit"] }
+cpal = "0.18"
+symphonia = { version = "0.5", features = ["all"] }
+realfft = "3.5"
+hound = "3.5"
+rfd = "0.18"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+parking_lot = "0.12"
+raw-window-handle = "0.6"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Globalization",
+    "Win32_Graphics_Dwm",
+    "Win32_System_LibraryLoader",
+    "Win32_System_SystemInformation",
+    "Win32_System_Threading",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
+panic = "unwind"
+
+# o DSP e a decodificacao ficam lentos demais sem otimizacao; o codigo do app continua depuravel
+[profile.dev.package."*"]
+opt-level = 2

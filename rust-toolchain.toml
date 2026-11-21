@@ -1,0 +1,5 @@
+# Toolchain GNU: compila sem o Visual Studio (o linker e o rust-lld, ver .cargo/config.toml).
+[toolchain]
+channel = "stable-x86_64-pc-windows-gnu"
+components = ["llvm-tools"]
+profile = "minimal"
