@@ -2,11 +2,11 @@
 
 [English](README.md) | **Português**
 
+![Sound Mod](docs/screenshot-pt.png)
+
 **Soundboard para Windows que toca sons direto no seu microfone**, refeito em Rust com uma interface neon em grafite escuro e verde fluorescente. Aperte uma tecla (ou clique num botão) e o som sai no canal do microfone, para Discord, jogos, chamadas e streams, enquanto você continua falando normalmente.
 
 Também grava os **últimos segundos do áudio do PC** (padrão 5 s) para você cortar e reproduzir no microfone.
-
-![Sound Mod](docs/screenshot-pt.png)
 
 ## Recursos
 
@@ -35,6 +35,8 @@ Sons (F1, F2...) ┘      └─► seus fones (monitor)
 
 ## Instalação
 
+> **Ainda sem release.** O projeto está sendo refinado antes da v1.0; por enquanto, compile a partir do código como descrito abaixo.
+
 1. Instale o [VB-CABLE](https://vb-audio.com/Cable/) (gratuito) e reinicie o PC.
 2. Compile o programa (abaixo) e abra `dist\SoundMod\SoundMod.exe`. Deixe-o numa pasta própria: configurações, clipes e sons salvos ficam ao lado dele.
 
@@ -62,7 +64,7 @@ Trocas de dispositivo valem ao clicar em **Aplicar / Reiniciar**; interruptores 
 
 ## Vindo da versão em Python
 
-O `config.json` tem o mesmo formato: copie seu `config.json` e a pasta `sounds\` para o lado do novo `.exe` e seus slots, teclas e dispositivos continuam. Diferenças: clipes e sons salvos ficam em WAV (sem perda, sem precisar de codificador) em vez de MP3, e o `last_clip.mp3` antigo não é usado.
+Esta é uma reescrita em Rust do [Sound Mod (Python)](https://github.com/renanzm/sound-mod). O `config.json` tem o mesmo formato: copie seu `config.json` e a pasta `sounds\` para o lado do novo `.exe` e seus slots, teclas e dispositivos continuam. Diferenças: clipes e sons salvos ficam em WAV (sem perda, sem precisar de codificador) em vez de MP3, e o `last_clip.mp3` antigo não é usado.
 
 ## Documentação
 

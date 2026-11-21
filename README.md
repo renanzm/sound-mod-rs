@@ -2,11 +2,11 @@
 
 **English** | [Português](README.pt-BR.md)
 
+![Sound Mod](docs/screenshot.png)
+
 **A Windows soundboard that plays sounds straight into your microphone**, rebuilt in Rust with a dark-graphite and fluorescent-green neon interface. Press a key (or click a button) and the sound goes out on your mic channel for Discord, games, calls and streams, while you keep talking normally.
 
 It can also record the **last few seconds of your PC audio** (5 s by default) so you can trim it and play it back on your mic.
-
-![Sound Mod](docs/screenshot.png)
 
 ## Features
 
@@ -35,6 +35,8 @@ Sounds (F1, F2...)┘      └─► your headphones (monitor)
 
 ## Installation
 
+> **No release yet.** The project is still being polished before v1.0; for now, build it from source as described below.
+
 1. Install [VB-CABLE](https://vb-audio.com/Cable/) (free) and restart your PC.
 2. Build the program (below) and open `dist\SoundMod\SoundMod.exe`. Keep it in its own folder: settings, clips and saved sounds live next to it.
 
@@ -62,7 +64,7 @@ Device changes take effect when you click **Apply / Restart**; switches and volu
 
 ## Coming from the Python version
 
-`config.json` uses the same format, so you can copy your `config.json` and `sounds\` folder next to the new `.exe` and keep your slots, keys and devices. Differences: clips and saved sounds are stored as WAV (lossless, no encoder needed) instead of MP3, and the existing `last_clip.mp3` is not used.
+This is a Rust rewrite of [Sound Mod (Python)](https://github.com/renanzm/sound-mod). `config.json` uses the same format, so you can copy your `config.json` and `sounds\` folder next to the new `.exe` and keep your slots, keys and devices. Differences: clips and saved sounds are stored as WAV (lossless, no encoder needed) instead of MP3, and the existing `last_clip.mp3` is not used.
 
 ## Documentation
 
