@@ -1099,7 +1099,7 @@ fn paint_background(ui: &Ui, time: f64) {
         y += step;
     }
     let k = theme::pulse(time, 0.7);
-    // no tema com degrade: magenta no alto, amarelo quente embaixo (ceu do por do sol)
+    // no tema com degrade (Vice City): magenta no alto, amarelo quente embaixo, como um por do sol
     let (top, low) = (theme::spectrum_at(0.0), theme::spectrum_at(1.0));
     theme::ambient(p, pos2(rect.left() + 170.0, rect.top() + 20.0), vec2(460.0, 110.0), alpha_of(top, (16.0 + 12.0 * k) as u8));
     theme::ambient(p, pos2(rect.right() - 220.0, rect.bottom() - 10.0), vec2(560.0, 120.0), alpha_of(low, 14));

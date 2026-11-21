@@ -1,5 +1,5 @@
 //! Identidade visual: cinza escuro + neon (verde fluorescente por padrao; 8 cores a escolher)
-//! e o tema "Por do sol" (violeta da noite com degrade magenta -> amarelo quente).
+//! e o tema "Vice City" (violeta da noite com degrade magenta -> amarelo quente).
 //!
 //! Todas as cores da interface vem daqui. O "neon" e feito com sombras coloridas sem
 //! deslocamento (o egui desenha a sombra borrada) e texto repintado com halo transparente.
@@ -15,7 +15,7 @@ use eframe::egui::{
 
 // ---- cores de base (fundo, paineis, texto) ----
 
-/// Cores neutras da interface. O tema "Por do sol" troca o grafite por violeta escuro.
+/// Cores neutras da interface. O tema "Vice City" troca o grafite por violeta escuro.
 pub struct Base {
     pub bg: Color32,
     pub panel: Color32,
@@ -47,7 +47,7 @@ pub const GRAPHITE: Base = Base {
     header: Color32::from_rgb(0x15, 0x19, 0x1C),
 };
 
-/// Violeta da noite (Deep Violet #3B146B escurecido), para o tema "Por do sol".
+/// Violeta da noite (Deep Violet #3B146B escurecido), para o tema "Vice City".
 pub const DUSK: Base = Base {
     bg: Color32::from_rgb(0x11, 0x08, 0x1E),
     panel: Color32::from_rgb(0x1A, 0x0E, 0x2B),
@@ -124,8 +124,8 @@ const fn neon_color(key: &'static str, neon: Color32, core: Color32) -> Accent {
     Accent { key, neon, core, base: &GRAPHITE, spectrum: None, on: None }
 }
 
-/// Paleta do por do sol: Magenta, Coral Pink, Coral, Orange, Warm Yellow.
-pub const SUNSET: [Color32; 5] = [
+/// Paleta do tema Vice City (por do sol): Magenta, Coral Pink, Coral, Orange, Warm Yellow.
+pub const VICE_CITY: [Color32; 5] = [
     Color32::from_rgb(0xC9, 0x34, 0x9B),
     Color32::from_rgb(0xF3, 0x6A, 0x78),
     Color32::from_rgb(0xF8, 0x75, 0x72),
@@ -144,11 +144,11 @@ pub const ACCENTS: [Accent; 9] = [
     neon_color("yellow", Color32::from_rgb(0xFF, 0xE8, 0x1F), Color32::from_rgb(0xFF, 0xF8, 0xC6)),
     // tema: violeta da noite com degrade magenta -> amarelo quente
     Accent {
-        key: "sunset",
+        key: "vice_city",
         neon: Color32::from_rgb(0xF3, 0x6A, 0x78),
         core: Color32::from_rgb(0xFF, 0xD9, 0xC4),
         base: &DUSK,
-        spectrum: Some(&SUNSET),
+        spectrum: Some(&VICE_CITY),
         on: Some(Color32::from_rgb(0x2A, 0x0B, 0x4A)),
     },
 ];
@@ -157,6 +157,8 @@ static ACCENT: AtomicUsize = AtomicUsize::new(0);
 
 /// Troca a cor do neon pelo nome (desconhecido = verde). Depois chame `apply_style`.
 pub fn set_accent(key: &str) {
+    // "sunset" era o nome antigo do tema Vice City (configs ja salvas)
+    let key = if key == "sunset" { "vice_city" } else { key };
     ACCENT.store(ACCENTS.iter().position(|a| a.key == key).unwrap_or(0), Ordering::Relaxed);
 }
 

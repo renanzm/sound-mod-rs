@@ -2,9 +2,9 @@
 
 [English](README.md) | **Português**
 
-![Sound Mod nas 8 cores de neon e no tema Pôr do sol, uma fatia vertical de cada](docs/screenshot-pt.png)
+![Sound Mod nas 8 cores de neon e no tema Vice City, uma fatia vertical de cada](docs/screenshot-pt.png)
 
-**Soundboard para Windows que toca sons direto no seu microfone**, refeito em Rust com uma interface neon escura em 8 cores e um tema de pôr do sol. Aperte uma tecla (ou clique num botão) e o som sai no canal do microfone, para Discord, jogos, chamadas e streams, enquanto você continua falando normalmente.
+**Soundboard para Windows que toca sons direto no seu microfone**, refeito em Rust com uma interface neon escura em 8 cores e um tema Vice City. Aperte uma tecla (ou clique num botão) e o som sai no canal do microfone, para Discord, jogos, chamadas e streams, enquanto você continua falando normalmente.
 
 Também grava os **últimos segundos do áudio do PC** (padrão 5 s) para você cortar e reproduzir no microfone.
 
@@ -23,8 +23,8 @@ Também grava os **últimos segundos do áudio do PC** (padrão 5 s) para você 
 - **Clipe do áudio do PC**: uma tecla salva os últimos N segundos em `clips/last_clip.wav`; outra toca. Arraste as alças neon na forma de onda para **escolher o trecho**, e **Salvar como som** guarda esse trecho como um som novo (na pasta `sounds/`).
 - **Monitor nos fones**: você ouve os sons enquanto eles saem no microfone.
 - **Medidores de nível** do microfone e da saída, e indicador **Ao vivo** pulsando.
-- **8 cores de neon e um tema**: verde, ciano, azul, roxo, rosa, vermelho, laranja ou amarelo, ou o tema **Pôr do sol** (fundos em violeta da noite e degrade magenta → coral → laranja → amarelo quente no título, botões, sliders, medidores e forma de onda), escolhidos na bolinha acesa do cabeçalho. A interface inteira, a borda da janela e o ícone da janela mudam na hora, e a escolha fica salva. O print acima mostra as nove opções, uma fatia de cada.
-- **Ícone colorido**: as cinco barrinhas de som do logo brilham cada uma numa cor (nas cores do Pôr do sol quando o tema está ligado); a moldura segue a cor escolhida.
+- **8 cores de neon e um tema**: verde, ciano, azul, roxo, rosa, vermelho, laranja ou amarelo, ou o tema **Vice City** (fundos em violeta da noite e degrade magenta → coral → laranja → amarelo quente no título, botões, sliders, medidores e forma de onda), escolhidos na bolinha acesa do cabeçalho. A interface inteira, a borda da janela e o ícone da janela mudam na hora, e a escolha fica salva. O print acima mostra as nove opções, uma fatia de cada.
+- **Ícone colorido**: as cinco barrinhas de som do logo brilham cada uma numa cor (nas cores do Vice City quando o tema está ligado); a moldura segue a cor escolhida.
 - **Português e inglês**: segue o idioma do Windows e pode ser trocado a qualquer momento.
 - **Seus dados sobrevivem às atualizações**: configuração, sons salvos e clipe ficam em `%APPDATA%\SoundMod`, fora da pasta do programa, então substituir o programa não apaga nada. O botão **Pasta de dados** (canto inferior direito) abre essa pasta.
 - **Um único `.exe`**, sem runtime nem Python, abre na hora.

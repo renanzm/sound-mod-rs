@@ -127,7 +127,7 @@ const PT: &[(&str, &str)] = &[
     ("accent_red", "Vermelho"),
     ("accent_orange", "Laranja"),
     ("accent_yellow", "Amarelo"),
-    ("accent_sunset", "Pôr do sol"),
+    ("accent_vice_city", "Vice City"),
     ("themes", "Temas"),
     ("tagline", "Soundboard direto no seu microfone"),
     ("devices", "Dispositivos"),
@@ -262,7 +262,7 @@ const EN: &[(&str, &str)] = &[
     ("accent_red", "Red"),
     ("accent_orange", "Orange"),
     ("accent_yellow", "Yellow"),
-    ("accent_sunset", "Sunset"),
+    ("accent_vice_city", "Vice City"),
     ("themes", "Themes"),
     ("tagline", "Soundboard straight into your mic"),
     ("devices", "Devices"),
@@ -332,7 +332,7 @@ pub fn accent_name(key: &str) -> &'static str {
         "red" => t("accent_red"),
         "orange" => t("accent_orange"),
         "yellow" => t("accent_yellow"),
-        "sunset" => t("accent_sunset"),
+        "vice_city" => t("accent_vice_city"),
         _ => t("accent_green"),
     }
 }
