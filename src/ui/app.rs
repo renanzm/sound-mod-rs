@@ -142,6 +142,9 @@ impl SoundApp {
             notice,
         };
         app.start_all();
+        // sons de configs antigas que estao fora da pasta de sons: copia uma vez (depois do
+        // start_all, para o aviso nao ser coberto pela mensagem de inicio)
+        app.core.adopt_all();
         app
     }
 
@@ -430,8 +433,8 @@ impl SoundApp {
                 ui.horizontal(|ui| {
                     widgets::title(ui, Icon::Waves, t("sounds"));
                     ui.add_space(8.0);
-                    let hint_w = (ui.available_width() - 360.0).max(40.0);
-                    widgets::label_truncated(ui, t("sounds_hint"), hint_w, font(12.5), muted());
+                    let hint_w = (ui.available_width() - 500.0).max(40.0);
+                    widgets::label_truncated(ui, t("sounds_hint"), hint_w, font(12.5), muted()).on_hover_text(t("sounds_hint"));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         if widgets::button(ui, t("add_sound"), Some(Icon::Plus), Style::Primary, 0.0).clicked() {
                             let files = pick_files(true);
@@ -439,6 +442,12 @@ impl SoundApp {
                         }
                         if widgets::button(ui, t("new_collection"), Some(Icon::Layers), Style::Ghost, 0.0).clicked() {
                             actions.push(RowAction::NewCollection(None));
+                        }
+                        let dir = config::sounds_dir();
+                        let tip = tf("tip_open_folder", &[("path", &dir.display())]);
+                        if widgets::button(ui, t("open_folder"), Some(Icon::Folder), Style::Ghost, 0.0).on_hover_text(tip).clicked() {
+                            let _ = std::fs::create_dir_all(&dir);
+                            let _ = std::process::Command::new("explorer").arg(&dir).spawn();
                         }
                     });
                 });

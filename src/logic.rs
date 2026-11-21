@@ -193,6 +193,69 @@ impl Core {
         }
     }
 
+    /// Garante que o arquivo do som esta na pasta de sons: copia se estiver em outro lugar e
+    /// passa a config para "sounds/<nome>". Ok(true) se copiou. Bloqueia: chamar fora da interface.
+    pub fn adopt_slot(&self, id: u64) -> Result<bool, String> {
+        let Some(slot) = self.slot(id) else { return Ok(false) };
+        if slot.path.is_empty() {
+            return Ok(false);
+        }
+        let src = config::resolve(&slot.path);
+        if !src.is_file() {
+            return Ok(false); // sumiu: o carregamento avisa
+        }
+        let dir = config::sounds_dir();
+        let (target, copied) = if config::is_inside(&src, &dir) {
+            (src, false)
+        } else {
+            (config::import_sound(&dir, &src).map_err(|e| e.to_string())?, true)
+        };
+        let rel = config::data_relative(&target);
+        if rel == slot.path {
+            return Ok(false);
+        }
+        {
+            let mut cfg = self.cfg.lock();
+            // so troca se o som ainda aponta para o mesmo arquivo (o usuario pode ter trocado)
+            match cfg.slots.iter_mut().find(|s| s.id == id && s.path == slot.path) {
+                Some(s) => s.path = rel,
+                None => return Ok(false),
+            }
+        }
+        self.save_cfg();
+        Ok(copied)
+    }
+
+    /// Copia para a pasta de sons (se preciso) e carrega, numa thread.
+    pub fn spawn_adopt_and_load(self: &Arc<Self>, id: u64, quiet: bool) {
+        let core = self.clone();
+        std::thread::spawn(move || {
+            if let Err(e) = core.adopt_slot(id) {
+                let name = core.slot(id).map(|s| config::file_name(&s.path)).unwrap_or_default();
+                core.say(tf("import_error", &[("name", &name), ("e", &e)]));
+            }
+            core.load_slot(id, quiet);
+        });
+    }
+
+    /// Traz para a pasta de sons os sons que ainda estao em outros lugares (configs antigas).
+    pub fn adopt_all(self: &Arc<Self>) {
+        let core = self.clone();
+        std::thread::spawn(move || {
+            let mut copied = 0;
+            for slot in core.slots() {
+                match core.adopt_slot(slot.id) {
+                    Ok(true) => copied += 1,
+                    Ok(false) => {}
+                    Err(e) => core.say(tf("import_error", &[("name", &config::file_name(&slot.path)), ("e", &e)])),
+                }
+            }
+            if copied > 0 {
+                core.say(tf("sounds_imported", &[("n", &copied)]));
+            }
+        });
+    }
+
     pub fn spawn_load(self: &Arc<Self>, id: u64, quiet: bool) {
         let core = self.clone();
         std::thread::spawn(move || core.load_slot(id, quiet));
@@ -248,8 +311,7 @@ impl Core {
                 }
             }
         };
-        self.engine.invalidate(&config::resolve(&path));
-        self.spawn_load(id, true);
+        self.spawn_adopt_and_load(id, true);
         id
     }
 
@@ -352,9 +414,8 @@ impl Core {
         } else {
             return;
         }
-        self.engine.invalidate(&config::resolve(&path));
         self.save_cfg();
-        self.spawn_load(id, false);
+        self.spawn_adopt_and_load(id, false);
     }
 
     pub fn set_slot_volume(&self, id: u64, volume: f32) {

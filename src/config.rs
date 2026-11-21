@@ -232,6 +232,50 @@ pub fn resolve(path: &str) -> PathBuf {
     dirs().resolve(path)
 }
 
+/// Caminho para gravar na config: relativo a pasta de dados quando estiver dentro dela
+/// ("sounds/x.wav"), senao absoluto.
+pub fn data_relative(path: &Path) -> String {
+    path.strip_prefix(data_dir())
+        .map(|p| p.to_string_lossy().replace('\\', "/"))
+        .unwrap_or_else(|_| path.to_string_lossy().into_owned())
+}
+
+/// `path` esta dentro de `dir` (comparando os caminhos reais)?
+pub fn is_inside(path: &Path, dir: &Path) -> bool {
+    match (path.canonicalize(), dir.canonicalize()) {
+        (Ok(p), Ok(d)) => p.starts_with(d),
+        _ => false,
+    }
+}
+
+/// Copia `src` para a pasta `dir` e devolve onde ficou. Um arquivo identico que ja esteja la e
+/// reaproveitado; um diferente com o mesmo nome faz a copia virar "nome (2).ext". O original nao
+/// e tocado.
+pub fn import_sound(dir: &Path, src: &Path) -> io::Result<PathBuf> {
+    std::fs::create_dir_all(dir)?;
+    let name = src.file_name().ok_or_else(|| io::Error::other("sem nome de arquivo"))?;
+    let stem = Path::new(name).file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+    let ext = Path::new(name).extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
+    for n in 1.. {
+        let candidate = if n == 1 { dir.join(name) } else { dir.join(format!("{stem} ({n}){ext}")) };
+        if !candidate.exists() {
+            std::fs::copy(src, &candidate)?;
+            return Ok(candidate);
+        }
+        if same_contents(src, &candidate)? {
+            return Ok(candidate);
+        }
+    }
+    unreachable!()
+}
+
+fn same_contents(a: &Path, b: &Path) -> io::Result<bool> {
+    if std::fs::metadata(a)?.len() != std::fs::metadata(b)?.len() {
+        return Ok(false);
+    }
+    Ok(std::fs::read(a)? == std::fs::read(b)?)
+}
+
 pub fn file_name(path: &str) -> String {
     Path::new(path).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()
 }
@@ -387,6 +431,32 @@ mod tests {
 
     fn paths(cfg: &Config) -> Vec<(&str, Option<&str>)> {
         cfg.slots.iter().map(|s| (s.path.as_str(), s.collection.as_deref())).collect()
+    }
+
+    #[test]
+    fn import_sound_copies_reuses_and_renames() {
+        let (_t, d) = setup("import");
+        let src_dir = d.app.join("musicas");
+        std::fs::create_dir_all(&src_dir).unwrap();
+        let a = src_dir.join("buzina.mp3");
+        std::fs::write(&a, b"aaa").unwrap();
+        // copia e mantem o original
+        let first = import_sound(&d.sounds(), &a).unwrap();
+        assert_eq!(first, d.sounds().join("buzina.mp3"));
+        assert_eq!(std::fs::read(&first).unwrap(), b"aaa");
+        assert!(a.exists());
+        // o mesmo arquivo de novo: reaproveita
+        assert_eq!(import_sound(&d.sounds(), &a).unwrap(), first);
+        // outro arquivo com o mesmo nome: nao sobrescreve
+        let other_dir = d.app.join("outra");
+        std::fs::create_dir_all(&other_dir).unwrap();
+        let b = other_dir.join("buzina.mp3");
+        std::fs::write(&b, b"bbbb").unwrap();
+        let second = import_sound(&d.sounds(), &b).unwrap();
+        assert_eq!(second, d.sounds().join("buzina (2).mp3"));
+        assert_eq!(std::fs::read(&first).unwrap(), b"aaa");
+        assert!(is_inside(&second, &d.sounds()));
+        assert!(!is_inside(&a, &d.sounds()));
     }
 
     #[test]

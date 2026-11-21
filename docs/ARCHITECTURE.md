@@ -72,6 +72,7 @@ sound-mod-rs/
 - Same format as the Python version: `language`, `mic_device`, `output_device`, `monitor_device`, `loopback_device`, `mix_mic`, `monitor`, `master_volume`, `clip_seconds`, `voice_effect`, `accent`, `hear_self`, `clip_trim`, `save_clip_key`, `play_clip_key`, `stop_key`, `collections[{name, collapsed}]`, `slots[{key, path, volume, collection}]`. **Unknown fields are preserved** (`#[serde(flatten)] extra`) so one version doesn't erase what the other wrote. `collections` also accepts bare names (`["Memes"]`).
 - Devices by **name**: `None` = automatic (resolved on first start, then saved), `Some("")` = none. The old text `"(nenhum)"` becomes `""`.
 - `resolve()`: relative paths (`sounds/x.wav`) are relative to the data folder.
+- **Fixed sounds folder:** `import_sound(dir, src)` copies the file into `sounds\` (the original stays untouched); an identical file already there is reused and a different one with the same name becomes `name (2).ext`. `Core::adopt_slot` uses it when a sound is added or its file is changed (on a thread, before loading) and stores the relative path `sounds/<name>`; `Core::adopt_all` does the same once at startup for sounds still outside the folder. The **Open folder** button (sounds card) opens `sounds\`.
 - `save()` writes `config.tmp` and renames it.
 - `Slot.id` only exists in memory: it is the channel id in the mixer (and identifies the sound for order/collections, since two empty slots have equal contents).
 - `load_in`/`save_in` take the folders: tests use temporary folders.
@@ -195,7 +196,7 @@ What the interface and the hotkeys do: play/stop slots, save/play the clip, save
 - `hotkeys`: normalization, name round trip, invalid keys.
 - `i18n`: same keys and fields in both languages.
 - `library` (ported from `tests/test_library.py`): group order, moving only within the collection, edges, identical empty slots (by id), changing collection goes to the end, rename, delete keeps the sounds, move/collapse collection, name validation, old configs and duplicate/blank collections.
-- `config` (ported from `tests/test_config.py`): fresh install, import from the old version (config, sounds and clip; nothing deleted), replaced program folder keeps everything, old config copied again doesn't win, import doesn't overwrite sounds, corrupted config kept aside, round trip preserving unknown fields.
+- `config`: copying into the sounds folder (copies, reuses identical, renames on conflict); and, ported from `tests/test_config.py`: fresh install, import from the old version (config, sounds and clip; nothing deleted), replaced program folder keeps everything, old config copied again doesn't win, import doesn't overwrite sounds, corrupted config kept aside, round trip preserving unknown fields.
 - `cable_roundtrip` (ignored by default): plays a quiet 1 kHz tone into `CABLE Input`, records it through the loopback of the same device and checks frequency and amplitude in the saved WAV. Nothing comes out of the speakers.
 
 ### Environment variables (diagnostics)

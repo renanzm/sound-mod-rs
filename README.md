@@ -16,6 +16,7 @@ It can also record the **last few seconds of your PC audio** (5 s by default) so
 - **Per-sound controls**: ▶ play, ⏸ pause/resume, ■ stop, draggable progress bar (seek) and individual live volume.
 - **One sound at a time**: playing a sound interrupts the current one.
 - **Add many files at once**: **Add sound** accepts several files; they fill the empty slots first.
+- **All sounds in one folder**: added files are copied into the app's `sounds` folder (the originals stay where they were), next to the sounds you create with **Save as sound**. An identical file already there is reused instead of duplicated. **Open folder** opens it. Sounds from older settings that live elsewhere are copied in once.
 - **Order and collections**: ▲▼ arrows change the order of each sound (within its group) and the order is saved. Group sounds into **collections** that you can create, rename, reorder, collapse and delete (deleting a collection keeps its sounds, they move to *No collection*). Each sound has a menu to move it between collections, and **+ Sound** on a collection adds files straight into it. Hotkeys keep working for sounds in collapsed collections.
 - **Voice effects**: Deep, High, Robot, Ogre, Autotune, Echo, Radio and Alien, applied live to your mic. Turn on **Hear my voice** to monitor yourself.
 - **PC audio clip**: one key saves the last N seconds to `clips/last_clip.wav`, another plays it. Drag the neon handles on the waveform to **choose the part** that plays, and **Save as sound** keeps that part as a new sound (stored in `sounds/`).

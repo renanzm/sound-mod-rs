@@ -72,6 +72,7 @@ sound-mod-rs/
 - Mesmo formato da versão Python: `language`, `mic_device`, `output_device`, `monitor_device`, `loopback_device`, `mix_mic`, `monitor`, `master_volume`, `clip_seconds`, `voice_effect`, `accent`, `hear_self`, `clip_trim`, `save_clip_key`, `play_clip_key`, `stop_key`, `collections[{name, collapsed}]`, `slots[{key, path, volume, collection}]`. **Campos desconhecidos são preservados** (`#[serde(flatten)] extra`), para uma versão não apagar o que a outra gravou. `collections` aceita também nomes soltos (`["Memes"]`).
 - Dispositivos por **nome**: `None` = automático (resolvido na primeira abertura e então salvo), `Some("")` = nenhum. O texto antigo `"(nenhum)"` vira `""`.
 - `resolve()`: caminhos relativos (`sounds/x.wav`) são relativos à pasta de dados.
+- **Pasta fixa dos sons:** `import_sound(pasta, origem)` copia o arquivo para `sounds\` (o original fica intacto); um arquivo idêntico já lá é reaproveitado e um diferente com o mesmo nome vira `nome (2).ext`. `Core::adopt_slot` usa isso ao adicionar ou trocar o arquivo de um som (numa thread, antes de carregar) e grava o caminho relativo `sounds/<nome>`; `Core::adopt_all` faz o mesmo uma vez na abertura para os sons que ainda estão fora da pasta. O botão **Abrir pasta** (cartão de sons) abre `sounds\`.
 - `save()` grava em `config.tmp` e renomeia.
 - `Slot.id` só existe em memória: é o id do canal no mixer (e identifica o som na ordem/coleções, já que dois slots vazios são iguais em conteúdo).
 - `load_in`/`save_in` recebem as pastas: os testes usam pastas temporárias.
@@ -194,7 +195,7 @@ O que a interface e as hotkeys fazem: tocar/parar slots, salvar/tocar o clipe, s
 - `hotkeys`: normalização, nomes ida e volta, teclas inválidas.
 - `i18n`: mesmas chaves e campos nos dois idiomas.
 - `library` (portados de `tests/test_library.py`): grupos na ordem, mover só dentro da coleção, pontas, slots vazios iguais (por id), mudar de coleção vai para o fim, renomear, apagar mantém os sons, mover/recolher coleção, validação de nomes, configs antigas e coleções repetidas/em branco.
-- `config` (portados de `tests/test_config.py`): instalação nova, importação da versão antiga (config, sons e clipe; nada apagado), pasta do programa substituída mantém tudo, config antigo copiado de novo não vence, importação não sobrescreve sons, config corrompido guardado à parte, ida e volta preservando campos desconhecidos.
+- `config`: cópia para a pasta de sons (copia, reaproveita idêntico, renomeia no conflito); e os portados de `tests/test_config.py`: instalação nova, importação da versão antiga (config, sons e clipe; nada apagado), pasta do programa substituída mantém tudo, config antigo copiado de novo não vence, importação não sobrescreve sons, config corrompido guardado à parte, ida e volta preservando campos desconhecidos.
 - `cable_roundtrip` (ignorado por padrão): toca 1 kHz baixo no `CABLE Input`, grava pelo loopback do mesmo dispositivo e confere frequência e amplitude no WAV salvo. Não sai nos alto-falantes.
 
 ### Variáveis de ambiente (diagnóstico)
