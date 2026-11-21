@@ -25,7 +25,7 @@ fn main() {
     let mut group = vec![0, 0, 1, 0, SIZES.len() as u8, 0]; // GRPICONDIR: reservado, tipo=1, quantidade
     for (i, &n) in SIZES.iter().enumerate() {
         let id = i as u16 + 1;
-        let image = dib(n, &icon_raster::rgba(n));
+        let image = dib(n, &icon_raster::rgba(n, icon_raster::GREEN));
         entry(&mut res, RT_ICON, id, &image);
         let side = if n >= 256 { 0 } else { n as u8 };
         group.extend_from_slice(&[side, side, 0, 0]);

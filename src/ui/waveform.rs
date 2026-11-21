@@ -122,7 +122,7 @@ impl Waveform {
             let inside = x >= xs && x <= xe;
             if inside {
                 p.line_segment([pos2(x, mid - hh), pos2(x, mid + hh)], Stroke::new(5.0, neon((28.0 + 22.0 * k) as u8)));
-                p.line_segment([pos2(x, mid - hh), pos2(x, mid + hh)], Stroke::new(2.6, NEON));
+                p.line_segment([pos2(x, mid - hh), pos2(x, mid + hh)], Stroke::new(2.6, accent()));
             } else {
                 p.line_segment([pos2(x, mid - hh), pos2(x, mid + hh)], Stroke::new(2.6, DIM));
             }
@@ -132,12 +132,12 @@ impl Waveform {
         for (x, when, left) in [(xs, self.start, true), (xe, self.end, false)] {
             let line = [pos2(x, rect.top() + 6.0), pos2(x, rect.bottom() - 6.0)];
             p.line_segment(line, Stroke::new(4.0, neon(60)));
-            p.line_segment(line, Stroke::new(1.5, NEON_CORE));
+            p.line_segment(line, Stroke::new(1.5, accent_core()));
             let knob = pos2(x, mid);
             theme::glow(&p, Rect::from_center_size(knob, vec2(12.0, 12.0)), 6.0, neon(150), 10.0);
-            p.circle(knob, 6.5, NEON_CORE, Stroke::new(2.0, NEON));
+            p.circle(knob, 6.5, accent_core(), Stroke::new(2.0, accent()));
             let (anchor, dx) = if left { (Align2::LEFT_TOP, 6.0) } else { (Align2::RIGHT_TOP, -6.0) };
-            p.text(pos2(x + dx, rect.top() + 6.0), anchor, theme::mmss_tenths(when), bold(10.5), NEON_CORE);
+            p.text(pos2(x + dx, rect.top() + 6.0), anchor, theme::mmss_tenths(when), bold(10.5), accent_core());
         }
         let label = tf("selection", &[("sel", &format!("{:.1}", self.end - self.start)), ("total", &format!("{:.1}", self.dur))]);
         p.text(pos2(rect.right() - PAD, rect.bottom() - 5.0), Align2::RIGHT_BOTTOM, label, font(11.0), MUTED);

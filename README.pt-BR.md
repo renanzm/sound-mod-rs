@@ -2,9 +2,9 @@
 
 [English](README.md) | **Português**
 
-![Sound Mod](docs/screenshot-pt.png)
+![Sound Mod nas 8 cores de neon, uma fatia vertical por cor](docs/screenshot-pt.png)
 
-**Soundboard para Windows que toca sons direto no seu microfone**, refeito em Rust com uma interface neon em grafite escuro e verde fluorescente. Aperte uma tecla (ou clique num botão) e o som sai no canal do microfone, para Discord, jogos, chamadas e streams, enquanto você continua falando normalmente.
+**Soundboard para Windows que toca sons direto no seu microfone**, refeito em Rust com uma interface neon em grafite escuro, em 8 cores. Aperte uma tecla (ou clique num botão) e o som sai no canal do microfone, para Discord, jogos, chamadas e streams, enquanto você continua falando normalmente.
 
 Também grava os **últimos segundos do áudio do PC** (padrão 5 s) para você cortar e reproduzir no microfone.
 
@@ -21,6 +21,7 @@ Também grava os **últimos segundos do áudio do PC** (padrão 5 s) para você 
 - **Clipe do áudio do PC**: uma tecla salva os últimos N segundos em `clips/last_clip.wav`; outra toca. Arraste as alças neon na forma de onda para **escolher o trecho**, e **Salvar como som** guarda esse trecho como um som novo (na pasta `sounds/`).
 - **Monitor nos fones**: você ouve os sons enquanto eles saem no microfone.
 - **Medidores de nível** do microfone e da saída, e indicador **Ao vivo** pulsando.
+- **8 cores de neon**: verde, ciano, azul, roxo, rosa, vermelho, laranja ou amarelo, escolhidas na bolinha acesa do cabeçalho. A interface inteira, a borda da janela e o ícone da barra de tarefas mudam na hora, e a escolha fica salva (o print acima mostra as oito, uma fatia de cada).
 - **Português e inglês**: segue o idioma do Windows e pode ser trocado a qualquer momento.
 - **Seus dados sobrevivem às atualizações**: configuração, sons salvos e clipe ficam em `%APPDATA%\SoundMod`, fora da pasta do programa, então substituir o programa não apaga nada. O botão **Pasta de dados** (canto inferior direito) abre essa pasta.
 - **Um único `.exe`**, sem runtime nem Python, abre na hora.
@@ -60,7 +61,7 @@ O projeto usa o toolchain GNU do Rust (fixado no `rust-toolchain.toml`) com o li
 2. No Discord ou no jogo, escolha **CABLE Output** como microfone. No Discord, desligue Supressão de ruído, Cancelamento de eco e Controle automático de ganho, que costumam cortar os efeitos sonoros.
 3. Escolha os arquivos dos slots. Cada botão de tecla é dividido: **▶ F1** toca e, apertado de novo, para; **✎** troca a tecla; **⌫** remove a tecla. Só um som toca por vez.
 4. Organize: **▲▼** à esquerda de cada som muda a posição; **Nova coleção** cria um grupo; o botão de camadas de cada som leva ele para uma coleção; no cabeçalho de uma coleção, a seta (ou o nome) recolhe, **+ Som** adiciona arquivos nela, ▲▼ muda a coleção de lugar, ✎ renomeia e a lixeira apaga (os sons voltam para *Sem coleção*).
-5. **F5** salva os últimos N segundos do áudio do PC e mostra a forma de onda; arraste as alças verdes para escolher o trecho. **F6** toca esse trecho. **F12** para tudo. **Salvar como som** pede um nome e adiciona o trecho escolhido aos seus sons.
+5. **F5** salva os últimos N segundos do áudio do PC e mostra a forma de onda; arraste as alças acesas para escolher o trecho. **F6** toca esse trecho. **F12** para tudo. **Salvar como som** pede um nome e adiciona o trecho escolhido aos seus sons.
 6. **Efeito de voz**: escolha um efeito no painel lateral. Ele muda seu microfone ao vivo; **Normal** desliga. Marque **Ouvir minha voz** para se escutar.
 
 Trocas de dispositivo valem ao clicar em **Aplicar / Reiniciar**; interruptores e volumes valem na hora.

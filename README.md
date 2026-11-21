@@ -2,9 +2,9 @@
 
 **English** | [Português](README.pt-BR.md)
 
-![Sound Mod](docs/screenshot.png)
+![Sound Mod in its 8 neon colors, one vertical slice per color](docs/screenshot.png)
 
-**A Windows soundboard that plays sounds straight into your microphone**, rebuilt in Rust with a dark-graphite and fluorescent-green neon interface. Press a key (or click a button) and the sound goes out on your mic channel for Discord, games, calls and streams, while you keep talking normally.
+**A Windows soundboard that plays sounds straight into your microphone**, rebuilt in Rust with a dark-graphite neon interface in 8 colors. Press a key (or click a button) and the sound goes out on your mic channel for Discord, games, calls and streams, while you keep talking normally.
 
 It can also record the **last few seconds of your PC audio** (5 s by default) so you can trim it and play it back on your mic.
 
@@ -21,6 +21,7 @@ It can also record the **last few seconds of your PC audio** (5 s by default) so
 - **PC audio clip**: one key saves the last N seconds to `clips/last_clip.wav`, another plays it. Drag the neon handles on the waveform to **choose the part** that plays, and **Save as sound** keeps that part as a new sound (stored in `sounds/`).
 - **Headphone monitor**: you hear the sounds while they go out on your mic.
 - **Live level meters** for the mic and the output, and a pulsing **Live** indicator.
+- **8 neon colors**: green, cyan, blue, purple, pink, red, orange or yellow, picked from the glowing dot in the header. The whole interface, the window border and the taskbar icon change instantly, and the choice is saved (the screenshot above shows all eight, one slice each).
 - **English and Portuguese**: follows your Windows language, switchable at any time.
 - **Your data survives updates**: settings, saved sounds and the clip live in `%APPDATA%\SoundMod`, not in the program folder, so replacing the program doesn't erase anything. **Data folder** (bottom right) opens it.
 - **Single `.exe`**, no runtime, no Python, starts instantly.
@@ -60,7 +61,7 @@ The project uses the GNU Rust toolchain (pinned in `rust-toolchain.toml`) linked
 2. In Discord or your game, choose **CABLE Output** as the microphone. In Discord, turn off Noise Suppression, Echo Cancellation and Automatic Gain Control, which tend to cut sound effects.
 3. Assign files to the slots. Each key button is split: **▶ F1** plays and, pressed again, stops; **✎** changes the key; **⌫** removes the key. Only one sound plays at a time.
 4. Organize: **▲▼** on the left of each sound changes its position; **New collection** creates a group; the layers button on each sound moves it to a collection; on a collection header, the arrow (or the name) collapses it, **+ Sound** adds files into it, ▲▼ moves the collection, ✎ renames and the trash deletes it (its sounds go back to *No collection*).
-5. **F5** saves the last N seconds of PC audio and shows the waveform; drag the green handles to choose the part. **F6** plays that part. **F12** stops everything. **Save as sound** asks for a name and adds the selected part to your sounds.
+5. **F5** saves the last N seconds of PC audio and shows the waveform; drag the glowing handles to choose the part. **F6** plays that part. **F12** stops everything. **Save as sound** asks for a name and adds the selected part to your sounds.
 6. **Voice effect**: pick an effect in the side panel. It changes your mic live; **Normal** turns it off. Check **Hear my voice** to monitor yourself.
 
 Device changes take effect when you click **Apply / Restart**; switches and volumes apply immediately.

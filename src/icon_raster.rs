@@ -1,19 +1,23 @@
 //! Desenho do icone do app em pixels (RGBA), sem dependencias: usado pela janela (logo.rs) e
 //! pelo build.rs, que grava o icone dentro do .exe.
 //!
-//! Quadrado grafite com borda verde neon e cinco barras de onda, por campo de distancia
+//! Quadrado grafite com borda neon e cinco barras de onda, por campo de distancia
 //! (anti-aliasing e brilho de graca).
 
 pub const BARS: [f32; 5] = [0.13, 0.24, 0.32, 0.22, 0.12];
 
-/// Pixels RGBA (nao pre-multiplicados) de um icone `n` x `n`.
-pub fn rgba(n: usize) -> Vec<u8> {
+/// Verde do icone do .exe (o padrao do app).
+#[allow(dead_code)] // usado pelo build.rs
+pub const GREEN: ([u8; 3], [u8; 3]) = ([0x39, 0xFF, 0x14], [0xC8, 0xFF, 0xB8]);
+
+/// Pixels RGBA (nao pre-multiplicados) de um icone `n` x `n`, com o neon (tubo, nucleo) dado.
+pub fn rgba(n: usize, (tube, filament): ([u8; 3], [u8; 3])) -> Vec<u8> {
     let mut out = vec![0u8; n * n * 4];
     let s = n as f32;
     let px_unit = s / 64.0; // espessuras pensadas para 64 px
     let (half, radius) = (s * 0.46, s * 0.2);
-    let neon = [0x39 as f32, 0xFF as f32, 0x14 as f32];
-    let core = [0xC8 as f32, 0xFF as f32, 0xB8 as f32];
+    let neon = tube.map(f32::from);
+    let core = filament.map(f32::from);
     for y in 0..n {
         for x in 0..n {
             let (px, py) = (x as f32 + 0.5 - s / 2.0, y as f32 + 0.5 - s / 2.0);

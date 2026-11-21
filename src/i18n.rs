@@ -38,7 +38,7 @@ const PT: &[(&str, &str)] = &[
     ("seconds", "seg"),
     ("clip", "Clipe"),
     ("stop_all", "Parar tudo"),
-    ("clip_hint", "Arraste as alças verdes para escolher o trecho que toca; clique na onda para mudar a posição."),
+    ("clip_hint", "Arraste as alças acesas para escolher o trecho que toca; clique na onda para mudar a posição."),
     ("no_clip", "Nenhum clipe ainda: pressione a tecla de salvar"),
     ("selection", "trecho {sel}s de {total}s"),
     ("ready", "Pronto."),
@@ -111,6 +111,16 @@ const PT: &[(&str, &str)] = &[
     ("tip_rename_collection", "Renomear a coleção"),
     ("tip_delete_collection", "Apagar a coleção (os sons vão para Sem coleção)"),
     ("tip_data_folder", "Abrir {path}"),
+    ("neon_color", "Cor do neon"),
+    ("accent_set", "Cor do neon: {name}"),
+    ("accent_green", "Verde"),
+    ("accent_cyan", "Ciano"),
+    ("accent_blue", "Azul"),
+    ("accent_purple", "Roxo"),
+    ("accent_pink", "Rosa"),
+    ("accent_red", "Vermelho"),
+    ("accent_orange", "Laranja"),
+    ("accent_yellow", "Amarelo"),
     ("tagline", "Soundboard direto no seu microfone"),
     ("devices", "Dispositivos"),
     ("live", "Ao vivo"),
@@ -155,7 +165,7 @@ const EN: &[(&str, &str)] = &[
     ("seconds", "sec"),
     ("clip", "Clip"),
     ("stop_all", "Stop all"),
-    ("clip_hint", "Drag the green handles to choose the part that plays; click the waveform to change the position."),
+    ("clip_hint", "Drag the glowing handles to choose the part that plays; click the waveform to change the position."),
     ("no_clip", "No clip yet: press the save key"),
     ("selection", "selection {sel}s of {total}s"),
     ("ready", "Ready."),
@@ -228,6 +238,16 @@ const EN: &[(&str, &str)] = &[
     ("tip_rename_collection", "Rename the collection"),
     ("tip_delete_collection", "Delete the collection (its sounds move to No collection)"),
     ("tip_data_folder", "Open {path}"),
+    ("neon_color", "Neon color"),
+    ("accent_set", "Neon color: {name}"),
+    ("accent_green", "Green"),
+    ("accent_cyan", "Cyan"),
+    ("accent_blue", "Blue"),
+    ("accent_purple", "Purple"),
+    ("accent_pink", "Pink"),
+    ("accent_red", "Red"),
+    ("accent_orange", "Orange"),
+    ("accent_yellow", "Yellow"),
     ("tagline", "Soundboard straight into your mic"),
     ("devices", "Devices"),
     ("live", "Live"),
@@ -284,6 +304,20 @@ pub fn display_name(lang: Lang) -> &'static str {
 /// Texto da chave no idioma atual (a propria chave se ela nao existir).
 pub fn t(key: &'static str) -> &'static str {
     t_in(current(), key)
+}
+
+/// Nome traduzido de uma cor do neon (`key` de ui::theme::ACCENTS).
+pub fn accent_name(key: &str) -> &'static str {
+    match key {
+        "cyan" => t("accent_cyan"),
+        "blue" => t("accent_blue"),
+        "purple" => t("accent_purple"),
+        "pink" => t("accent_pink"),
+        "red" => t("accent_red"),
+        "orange" => t("accent_orange"),
+        "yellow" => t("accent_yellow"),
+        _ => t("accent_green"),
+    }
 }
 
 /// Texto da chave num idioma especifico.

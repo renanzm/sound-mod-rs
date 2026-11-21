@@ -87,12 +87,17 @@ pub struct SoundApp {
 
 impl SoundApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        let (mut cfg, migrated) = config::load();
+        i18n::set_language(cfg.language.as_deref());
+        theme::set_accent(&cfg.accent);
         theme::install_fonts(&cc.egui_ctx);
         theme::apply_style(&cc.egui_ctx);
         super::window::style(cc);
-
-        let (mut cfg, migrated) = config::load();
-        i18n::set_language(cfg.language.as_deref());
+        if cfg.accent != theme::ACCENTS[0].key {
+            // a janela nasce com o icone verde (main.rs); troca para a cor salva
+            let icon = Arc::new(super::logo::icon_data());
+            cc.egui_ctx.send_viewport_cmd(egui::ViewportCommand::Icon(Some(icon)));
+        }
         let notice = migrated.map(|path| tf("config_imported", &[("path", &path.display())]));
         let (inputs, outputs) = engine::list_devices();
         let (def_in, def_out) = engine::default_device_names();
@@ -302,7 +307,7 @@ impl SoundApp {
                         ui.painter().galley(pos + off, galley.clone(), neon(a));
                     }
                 }
-                ui.painter().galley(pos, galley, NEON_CORE);
+                ui.painter().galley(pos, galley, accent_core());
                 ui.label(RichText::new(t("tagline")).font(font(12.5)).color(MUTED));
             });
 
@@ -336,6 +341,7 @@ impl SoundApp {
                         });
                 });
                 self.language_menu(ui);
+                self.accent_menu(ui, time);
                 widgets::level_meter(ui, t("level_out"), self.levels[1]);
                 widgets::level_meter(ui, t("level_mic"), self.levels[0]);
                 widgets::status_pill(ui, self.core.engine.running(), time);
@@ -363,6 +369,38 @@ impl SoundApp {
             self.core.cfg.lock().language = Some(i18n::code(selected).to_string());
             self.core.save_cfg();
         }
+    }
+
+    /// Botao da cor do neon com o menu das 8 cores.
+    fn accent_menu(&mut self, ui: &mut Ui, time: f64) {
+        let resp = widgets::accent_button(ui, time).on_hover_text(t("neon_color"));
+        let current = theme::current_accent().key;
+        let mut picked = None;
+        egui::Popup::menu(&resp).width(200.0).show(|ui| {
+            ui.spacing_mut().item_spacing.y = 2.0;
+            ui.label(RichText::new(t("neon_color").to_uppercase()).font(bold(11.5)).color(MUTED));
+            ui.add_space(2.0);
+            for a in &theme::ACCENTS {
+                let name = i18n::accent_name(a.key);
+                if widgets::accent_option(ui, a.neon, a.core, name, a.key == current).clicked() {
+                    picked = Some(a.key);
+                }
+            }
+        });
+        if let Some(key) = picked.filter(|k| *k != current) {
+            self.set_accent(ui.ctx(), key);
+        }
+    }
+
+    /// Troca a cor do neon: estilo do egui, borda da janela, icone e config.
+    fn set_accent(&self, ctx: &egui::Context, key: &str) {
+        theme::set_accent(key);
+        theme::apply_style(ctx);
+        super::window::recolor();
+        ctx.send_viewport_cmd(egui::ViewportCommand::Icon(Some(Arc::new(super::logo::icon_data()))));
+        self.core.cfg.lock().accent = key.to_string();
+        self.core.save_cfg();
+        self.core.say(tf("accent_set", &[("name", &i18n::accent_name(key))]));
     }
 
     // ---------- sons ----------
@@ -496,7 +534,7 @@ impl SoundApp {
         let (pos, dur, playing) = state.unwrap_or((0.0, 0.0, false));
         let k = theme::pulse(time, 5.0);
         let frame = Frame::new()
-            .fill(if playing { mix(ITEM, NEON_DEEP, 0.55) } else { ITEM })
+            .fill(if playing { mix(ITEM, accent_deep(), 0.55) } else { ITEM })
             .corner_radius(14)
             .inner_margin(Margin { left: 6, right: 10, top: 7, bottom: 7 })
             .outer_margin(Margin { left: 4, right: 10, top: 0, bottom: 0 })
@@ -553,7 +591,7 @@ impl SoundApp {
                 let name_w = (ui.available_width() - fixed).max(50.0);
                 let empty = slot.path.is_empty();
                 let name = if empty { t("no_file").to_string() } else { config::file_name(&slot.path) };
-                let color = if empty { MUTED } else if playing { NEON_CORE } else { TEXT };
+                let color = if empty { MUTED } else if playing { accent_core() } else { TEXT };
                 let r = widgets::label_truncated(ui, &name, name_w, bold(13.5), color);
                 if !empty {
                     r.on_hover_text(&slot.path);
@@ -565,7 +603,7 @@ impl SoundApp {
                     "-:-- / -:--".to_string()
                 };
                 let (tr, _) = ui.allocate_exact_size(vec2(time_w, 20.0), Sense::hover());
-                let time_color = if playing { NEON_CORE } else { MUTED };
+                let time_color = if playing { accent_core() } else { MUTED };
                 ui.painter().text(tr.right_center(), Align2::RIGHT_CENTER, time_text, font(12.0), time_color);
 
                 let mut p = pos as f32;
@@ -821,7 +859,7 @@ impl SoundApp {
             let (dot, _) = ui.allocate_exact_size(vec2(14.0, 18.0), Sense::hover());
             let k = theme::pulse(time, 2.0);
             theme::glow(ui.painter(), egui::Rect::from_center_size(dot.center(), vec2(5.0, 5.0)), 3.0, neon((60.0 + 60.0 * k) as u8), 8.0);
-            ui.painter().circle_filled(dot.center(), 2.5, NEON);
+            ui.painter().circle_filled(dot.center(), 2.5, accent());
             let w = (ui.available_width() - 320.0).max(80.0);
             widgets::label_truncated(ui, &self.core.status(), w, font(12.5), mix(MUTED, TEXT, 0.5));
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {

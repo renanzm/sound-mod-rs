@@ -53,12 +53,12 @@ pub fn button_sized(ui: &mut Ui, text: &str, icon: Option<Icon>, style: Style, m
         let p = ui.painter();
         let r = rect.height() / 2.0;
         let (fill, stroke, fg, glow_c, glow_a) = match style {
-            Style::Primary => (mix(NEON, NEON_CORE, h * 0.3), Stroke::NONE, ON_NEON, NEON, 70.0 + 90.0 * h),
+            Style::Primary => (mix(accent(), accent_core(), h * 0.3), Stroke::NONE, on_accent(), accent(), 70.0 + 90.0 * h),
             Style::Ghost => (
                 mix(ITEM, ITEM_HOVER, h),
-                Stroke::new(1.0, mix(BORDER, NEON, h * 0.8)),
-                mix(TEXT, NEON_CORE, h),
-                NEON,
+                Stroke::new(1.0, mix(BORDER, accent(), h * 0.8)),
+                mix(TEXT, accent_core(), h),
+                accent(),
                 45.0 * h,
             ),
         };
@@ -97,7 +97,7 @@ pub fn icon_button_sized(ui: &mut Ui, icon: Icon, size: egui::Vec2, tint: Tint, 
         let h = if enabled { hover_anim(ui, resp.id, resp.hovered()) } else { 0.0 };
         let p = ui.painter();
         let r = (size * 0.32).min(10.0);
-        let accent = if tint == Tint::Danger { DANGER } else { NEON };
+        let accent = if tint == Tint::Danger { DANGER } else { accent() };
         let base = match tint {
             Tint::Normal => ITEM,
             Tint::Flat | Tint::Danger => Color32::TRANSPARENT,
@@ -118,7 +118,7 @@ pub fn icon_button_sized(ui: &mut Ui, icon: Icon, size: egui::Vec2, tint: Tint, 
             (Tint::Flat, _) => mix(MUTED, TEXT, 0.25),
             (Tint::Normal, _) => TEXT,
         };
-        let fg = if enabled { mix(idle, if tint == Tint::Danger { DANGER } else { NEON_CORE }, h) } else { idle };
+        let fg = if enabled { mix(idle, if tint == Tint::Danger { DANGER } else { accent_core() }, h) } else { idle };
         // quadrado: icone com 46% do lado; retangulo baixo (setas): ocupa mais da altura
         let k = if (rect.width() - rect.height()).abs() < 0.5 { 0.46 } else { 1.15 };
         icons::paint(p, Rect::from_center_size(rect.center(), egui::Vec2::splat(size * k)), icon, fg);
@@ -176,11 +176,11 @@ pub fn key_button(
         if ui.is_rect_visible(rect) {
             let h = hover_anim(ui, action.id, action.hovered());
             let pulse = theme::pulse(time, 6.0);
-            let accent = if danger { DANGER } else { NEON };
+            let accent = if danger { DANGER } else { accent() };
             let p = ui.painter();
             let (fill, stroke, fg, glow_a) = if active {
-                let fg = if danger { Color32::WHITE } else { ON_NEON };
-                (mix(accent, NEON_CORE, if danger { 0.0 } else { 0.2 * h }), Stroke::NONE, fg, 90.0 + 70.0 * pulse)
+                let fg = if danger { Color32::WHITE } else { on_accent() };
+                (mix(accent, accent_core(), if danger { 0.0 } else { 0.2 * h }), Stroke::NONE, fg, 90.0 + 70.0 * pulse)
             } else if capturing {
                 (ITEM, Stroke::new(1.5, alpha_of(accent, (120.0 + 135.0 * pulse) as u8)), accent, 30.0 + 60.0 * pulse)
             } else {
@@ -188,7 +188,7 @@ pub fn key_button(
                 (
                     mix(base, ITEM_HOVER, h),
                     Stroke::new(1.0, mix(if danger { alpha_of(DANGER, 110) } else { BORDER }, accent, h * 0.8)),
-                    mix(if danger { mix(DANGER, TEXT, 0.4) } else { TEXT }, if danger { DANGER } else { NEON_CORE }, h),
+                    mix(if danger { mix(DANGER, TEXT, 0.4) } else { TEXT }, if danger { DANGER } else { accent_core() }, h),
                     40.0 * h,
                 )
             };
@@ -229,13 +229,13 @@ pub fn toggle(ui: &mut Ui, on: &mut bool, label: &str) -> Response {
         if k > 0.01 {
             theme::glow(p, track, 11.0, neon((50.0 * k + 40.0 * h * k) as u8), 14.0);
         }
-        let stroke = Stroke::new(1.0, mix(mix(BORDER, MUTED, h), NEON, k));
-        p.rect(track, CornerRadius::same(11), mix(ITEM, NEON_DEEP, k), stroke, StrokeKind::Inside);
+        let stroke = Stroke::new(1.0, mix(mix(BORDER, MUTED, h), accent(), k));
+        p.rect(track, CornerRadius::same(11), mix(ITEM, accent_deep(), k), stroke, StrokeKind::Inside);
         let knob = pos2(egui::lerp(track.left() + 11.0..=track.right() - 11.0, k), track.center().y);
         if k > 0.01 {
             theme::glow(p, Rect::from_center_size(knob, vec2(12.0, 12.0)), 6.0, neon((150.0 * k) as u8), 10.0);
         }
-        p.circle_filled(knob, 7.5, mix(MUTED, NEON_CORE, k));
+        p.circle_filled(knob, 7.5, mix(MUTED, accent_core(), k));
         p.galley(
             pos2(track.right() + 10.0, rect.center().y - galley.size().y / 2.0),
             galley,
@@ -271,7 +271,7 @@ pub fn slider(ui: &mut Ui, value: &mut f32, range: RangeInclusive<f32>, width: f
         p.rect_filled(track, CornerRadius::same(2), Color32::from_rgb(0x24, 0x2A, 0x2F));
         let x = inner.left() + frac * inner.width();
         let lit = Rect::from_min_max(track.min, pos2(x, track.max.y));
-        let color = if !enabled { DIM } else if muted { mix(MUTED, NEON, h) } else { NEON };
+        let color = if !enabled { DIM } else if muted { mix(MUTED, accent(), h) } else { accent() };
         if enabled && !muted && lit.width() > 1.0 {
             theme::glow(p, lit, 2.0, neon((60.0 + 50.0 * h) as u8), 8.0);
         }
@@ -279,7 +279,7 @@ pub fn slider(ui: &mut Ui, value: &mut f32, range: RangeInclusive<f32>, width: f
         if enabled {
             let knob = pos2(x, y);
             theme::glow(p, Rect::from_center_size(knob, vec2(10.0, 10.0)), 5.0, alpha_of(color, (50.0 + 110.0 * h) as u8), 10.0);
-            p.circle_filled(knob, 5.5 + 1.5 * h, mix(color, NEON_CORE, 0.6));
+            p.circle_filled(knob, 5.5 + 1.5 * h, mix(color, accent_core(), 0.6));
         }
     }
     if enabled { resp.on_hover_cursor(CursorIcon::PointingHand) } else { resp }
@@ -317,11 +317,11 @@ pub fn status_pill(ui: &mut Ui, live: bool, time: f64) -> Response {
     if live {
         let k = theme::pulse(time, 4.0);
         theme::glow(p, Rect::from_center_size(dot, vec2(8.0, 8.0)), 4.0, neon((90.0 + 140.0 * k) as u8), 8.0 + 6.0 * k);
-        p.circle_filled(dot, 4.0, NEON_CORE);
+        p.circle_filled(dot, 4.0, accent_core());
     } else {
         p.circle_filled(dot, 4.0, DIM);
     }
-    let fg = if live { NEON_CORE } else { MUTED };
+    let fg = if live { accent_core() } else { MUTED };
     p.galley(pos2(rect.left() + 28.0, rect.center().y - galley.size().y / 2.0), galley, fg);
     resp
 }
@@ -345,7 +345,7 @@ pub fn level_meter(ui: &mut Ui, label: &str, level: f32) -> Response {
         let r = Rect::from_min_max(pos2(x, rect.center().y - 5.0), pos2(x + seg_w - 2.0, rect.center().y + 5.0));
         let hot = i >= SEGS - 3;
         let color = if i < lit {
-            if hot { WARN } else { mix(NEON, NEON_CORE, i as f32 / SEGS as f32 * 0.5) }
+            if hot { WARN } else { mix(accent(), accent_core(), i as f32 / SEGS as f32 * 0.5) }
         } else {
             Color32::from_rgb(0x22, 0x28, 0x2D)
         };
@@ -365,10 +365,10 @@ pub fn choice(ui: &mut Ui, text: &str, selected: bool, width: f32) -> Response {
         if s > 0.01 || h > 0.01 {
             theme::glow(p, rect, 17.0, neon((90.0 * s + 35.0 * h) as u8), 16.0);
         }
-        let fill = mix(mix(ITEM, ITEM_HOVER, h), NEON, s);
-        let stroke = Stroke::new(1.0, mix(mix(BORDER, NEON, h * 0.8), NEON, s));
+        let fill = mix(mix(ITEM, ITEM_HOVER, h), accent(), s);
+        let stroke = Stroke::new(1.0, mix(mix(BORDER, accent(), h * 0.8), accent(), s));
         p.rect(rect, CornerRadius::same(17), fill, stroke, StrokeKind::Inside);
-        let fg = mix(mix(MUTED, NEON_CORE, h), ON_NEON, s);
+        let fg = mix(mix(MUTED, accent_core(), h), on_accent(), s);
         p.galley(rect.center() - galley.size() / 2.0, galley, fg);
     }
     resp.on_hover_cursor(CursorIcon::PointingHand)
@@ -387,7 +387,7 @@ pub fn card<R>(ui: &mut Ui, add: impl FnOnce(&mut Ui) -> R) -> InnerResponse<R> 
     let p = ui.painter();
     let (a, b) = (pos2(r.left() + 24.0, r.top()), pos2(r.left() + 96.0, r.top()));
     theme::glow(p, Rect::from_two_pos(a, b).expand2(vec2(0.0, 1.0)), 1.0, neon(140), 12.0);
-    p.line_segment([a, b], Stroke::new(2.0, NEON_CORE));
+    p.line_segment([a, b], Stroke::new(2.0, accent_core()));
     resp
 }
 
@@ -404,7 +404,7 @@ pub fn title(ui: &mut Ui, icon: Icon, text: &str) -> Response {
     let p = ui.painter();
     let icon_rect = Rect::from_center_size(pos2(rect.left() + 9.0, rect.center().y), vec2(18.0, 18.0));
     theme::glow(p, icon_rect.shrink(3.0), 4.0, neon(70), 10.0);
-    icons::paint(p, icon_rect, icon, NEON);
+    icons::paint(p, icon_rect, icon, accent());
     p.galley(pos2(rect.left() + 26.0, rect.center().y - galley.size().y / 2.0), galley, TEXT);
     resp
 }
@@ -416,7 +416,7 @@ pub fn count_badge(ui: &mut Ui, n: usize, lit: bool) -> Response {
     let p = ui.painter();
     let stroke = Stroke::new(1.0, if lit { neon(90) } else { BORDER });
     p.rect(rect, CornerRadius::same(10), ITEM, stroke, StrokeKind::Inside);
-    p.galley(rect.center() - galley.size() / 2.0, galley, if lit { NEON_CORE } else { MUTED });
+    p.galley(rect.center() - galley.size() / 2.0, galley, if lit { accent_core() } else { MUTED });
     resp
 }
 
@@ -432,6 +432,47 @@ pub fn collection_name(ui: &mut Ui, name: &str, expanded: bool) -> Response {
         p.galley(pos + vec2(0.0, 1.0), galley.clone(), neon(a));
         p.galley(pos - vec2(0.0, 1.0), galley.clone(), neon(a));
     }
-    p.galley(pos, galley, if expanded { mix(NEON_CORE, Color32::WHITE, h * 0.3) } else { mix(MUTED, TEXT, h) });
+    p.galley(pos, galley, if expanded { mix(accent_core(), Color32::WHITE, h * 0.3) } else { mix(MUTED, TEXT, h) });
+    resp.on_hover_cursor(CursorIcon::PointingHand)
+}
+
+/// Botao redondo com a cor do neon atual (abre o menu de cores).
+pub fn accent_button(ui: &mut Ui, time: f64) -> Response {
+    let (rect, resp) = ui.allocate_exact_size(vec2(34.0, 34.0), Sense::click());
+    if ui.is_rect_visible(rect) {
+        let h = hover_anim(ui, resp.id, resp.hovered());
+        let k = theme::pulse(time, 2.0);
+        let p = ui.painter();
+        let c = rect.center();
+        theme::glow(p, Rect::from_center_size(c, vec2(14.0, 14.0)), 7.0, neon((70.0 + 50.0 * k + 60.0 * h) as u8), 14.0);
+        p.circle(c, 16.0, ITEM, Stroke::new(1.0, mix(BORDER, accent(), 0.4 + 0.6 * h)));
+        p.circle_filled(c, 8.0, accent());
+        p.circle_filled(c, 3.5, accent_core());
+    }
+    resp.on_hover_cursor(CursorIcon::PointingHand)
+}
+
+/// Uma linha do menu de cores: bolinha acesa + nome.
+pub fn accent_option(ui: &mut Ui, color: Color32, core: Color32, name: &str, selected: bool) -> Response {
+    let galley = ui.painter().layout_no_wrap(name.to_string(), bold(13.0), Color32::PLACEHOLDER);
+    let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width().max(170.0), 32.0), Sense::click());
+    if ui.is_rect_visible(rect) {
+        let h = hover_anim(ui, resp.id, resp.hovered());
+        let p = ui.painter();
+        if selected || h > 0.01 {
+            let stroke = Stroke::new(1.0, alpha_of(color, if selected { 170 } else { (90.0 * h) as u8 }));
+            p.rect(rect, CornerRadius::same(10), alpha_of(color, (14.0 + 18.0 * h) as u8), stroke, StrokeKind::Inside);
+        }
+        let dot = pos2(rect.left() + 18.0, rect.center().y);
+        theme::glow(p, Rect::from_center_size(dot, vec2(10.0, 10.0)), 5.0, alpha_of(color, 150), 10.0);
+        p.circle_filled(dot, 7.0, color);
+        p.circle_filled(dot, 2.8, core);
+        let fg = if selected { core } else { mix(MUTED, TEXT, 0.4 + 0.6 * h) };
+        p.galley(pos2(rect.left() + 36.0, rect.center().y - galley.size().y / 2.0), galley, fg);
+        if selected {
+            let r = Rect::from_center_size(pos2(rect.right() - 16.0, rect.center().y), vec2(12.0, 12.0));
+            p.line(vec![r.left_center(), pos2(r.left() + 4.5, r.bottom() - 1.5), r.right_top()], Stroke::new(2.0, color));
+        }
+    }
     resp.on_hover_cursor(CursorIcon::PointingHand)
 }

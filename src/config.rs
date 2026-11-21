@@ -73,6 +73,8 @@ pub struct Config {
     pub master_volume: f32,
     pub clip_seconds: u32,
     pub voice_effect: String,
+    /// Cor do neon da interface (ver ui::theme::ACCENTS).
+    pub accent: String,
     pub hear_self: bool,
     /// [inicio, fim] em segundos do trecho do clipe que toca, ou None = inteiro.
     pub clip_trim: Option<[f64; 2]>,
@@ -101,6 +103,7 @@ impl Default for Config {
             master_volume: 1.0,
             clip_seconds: 5,
             voice_effect: "normal".into(),
+            accent: "green".into(),
             hear_self: false,
             clip_trim: None,
             save_clip_key: "f5".into(),

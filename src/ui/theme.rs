@@ -1,7 +1,9 @@
-//! Identidade visual: cinza escuro + verde fluorescente, com brilho neon.
+//! Identidade visual: cinza escuro + neon (verde fluorescente por padrao; 8 cores a escolher).
 //!
 //! Todas as cores da interface vem daqui. O "neon" e feito com sombras coloridas sem
 //! deslocamento (o egui desenha a sombra borrada) e texto repintado com halo transparente.
+
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use eframe::egui::{
     self, Color32, CornerRadius, FontData, FontDefinitions, FontFamily, FontId, Painter, Pos2, Rect, Shadow, Stroke,
@@ -17,21 +19,68 @@ pub const BORDER: Color32 = Color32::from_rgb(0x26, 0x2D, 0x33);
 pub const TEXT: Color32 = Color32::from_rgb(0xE3, 0xF0, 0xE6);
 pub const MUTED: Color32 = Color32::from_rgb(0x84, 0x93, 0x8A);
 pub const DIM: Color32 = Color32::from_rgb(0x41, 0x4B, 0x46);
-/// Verde fluorescente.
-pub const NEON: Color32 = Color32::from_rgb(0x39, 0xFF, 0x14);
-/// Nucleo claro do neon (o "filamento").
-pub const NEON_CORE: Color32 = Color32::from_rgb(0xC8, 0xFF, 0xB8);
-pub const NEON_DEEP: Color32 = Color32::from_rgb(0x0E, 0x2A, 0x0A);
-/// Texto sobre fundo neon.
-pub const ON_NEON: Color32 = Color32::from_rgb(0x03, 0x10, 0x02);
 pub const DANGER: Color32 = Color32::from_rgb(0xFF, 0x3B, 0x5C);
 pub const DANGER_DEEP: Color32 = Color32::from_rgb(0x2B, 0x0E, 0x14);
 pub const WARN: Color32 = Color32::from_rgb(0xFF, 0xD2, 0x3F);
 
 pub const RADIUS_CARD: u8 = 18;
 
+// ---- cor do neon (escolhida pelo usuario) ----
+
+/// Uma cor de neon: o tubo (cor forte) e o nucleo claro (o "filamento").
+pub struct Accent {
+    /// Nome na config (`"accent"`) e chave de traducao `accent_<key>`.
+    pub key: &'static str,
+    pub neon: Color32,
+    pub core: Color32,
+}
+
+pub const ACCENTS: [Accent; 8] = [
+    Accent { key: "green", neon: Color32::from_rgb(0x39, 0xFF, 0x14), core: Color32::from_rgb(0xC8, 0xFF, 0xB8) },
+    Accent { key: "cyan", neon: Color32::from_rgb(0x00, 0xE5, 0xFF), core: Color32::from_rgb(0xC4, 0xF9, 0xFF) },
+    Accent { key: "blue", neon: Color32::from_rgb(0x2E, 0x7D, 0xFF), core: Color32::from_rgb(0xC6, 0xDC, 0xFF) },
+    Accent { key: "purple", neon: Color32::from_rgb(0xB0, 0x3C, 0xFF), core: Color32::from_rgb(0xE8, 0xCC, 0xFF) },
+    Accent { key: "pink", neon: Color32::from_rgb(0xFF, 0x2B, 0xD6), core: Color32::from_rgb(0xFF, 0xC8, 0xF3) },
+    Accent { key: "red", neon: Color32::from_rgb(0xFF, 0x2E, 0x4D), core: Color32::from_rgb(0xFF, 0xC6, 0xCE) },
+    Accent { key: "orange", neon: Color32::from_rgb(0xFF, 0x8A, 0x1F), core: Color32::from_rgb(0xFF, 0xDE, 0xC2) },
+    Accent { key: "yellow", neon: Color32::from_rgb(0xFF, 0xE8, 0x1F), core: Color32::from_rgb(0xFF, 0xF8, 0xC6) },
+];
+
+static ACCENT: AtomicUsize = AtomicUsize::new(0);
+
+/// Troca a cor do neon pelo nome (desconhecido = verde). Depois chame `apply_style`.
+pub fn set_accent(key: &str) {
+    ACCENT.store(ACCENTS.iter().position(|a| a.key == key).unwrap_or(0), Ordering::Relaxed);
+}
+
+pub fn current_accent() -> &'static Accent {
+    &ACCENTS[ACCENT.load(Ordering::Relaxed).min(ACCENTS.len() - 1)]
+}
+
+/// Cor forte do neon.
+pub fn accent() -> Color32 {
+    current_accent().neon
+}
+
+/// Nucleo claro do neon.
+pub fn accent_core() -> Color32 {
+    current_accent().core
+}
+
+/// Fundo escuro tingido com o neon (itens ativos/tocando).
+pub fn accent_deep() -> Color32 {
+    mix(BG, accent(), 0.14)
+}
+
+/// Texto sobre fundo neon: escuro nas cores claras, branco nas escuras.
+pub fn on_accent() -> Color32 {
+    let c = accent();
+    let lum = 0.2126 * c.r() as f32 + 0.7152 * c.g() as f32 + 0.0722 * c.b() as f32;
+    if lum > 128.0 { Color32::from_rgb(0x05, 0x0B, 0x08) } else { Color32::WHITE }
+}
+
 pub fn neon(alpha: u8) -> Color32 {
-    alpha_of(NEON, alpha)
+    alpha_of(accent(), alpha)
 }
 
 pub fn alpha_of(c: Color32, alpha: u8) -> Color32 {
@@ -113,15 +162,15 @@ pub fn apply_style(ctx: &egui::Context) {
         v.code_bg_color = ITEM;
         v.warn_fg_color = WARN;
         v.error_fg_color = DANGER;
-        v.hyperlink_color = NEON;
+        v.hyperlink_color = accent();
         v.window_stroke = Stroke::new(1.0, neon(90));
         v.window_corner_radius = CornerRadius::same(16);
         v.menu_corner_radius = CornerRadius::same(12);
         v.window_shadow = Shadow { offset: [0, 0], blur: 40, spread: 0, color: neon(40) };
         v.popup_shadow = Shadow { offset: [0, 8], blur: 24, spread: 0, color: Color32::from_black_alpha(170) };
         v.selection.bg_fill = neon(60);
-        v.selection.stroke = Stroke::new(1.0, NEON_CORE);
-        v.text_cursor.stroke = Stroke::new(2.0, NEON);
+        v.selection.stroke = Stroke::new(1.0, accent_core());
+        v.text_cursor.stroke = Stroke::new(2.0, accent());
 
         let w = &mut v.widgets;
         let radius = CornerRadius::same(10);
@@ -138,13 +187,13 @@ pub fn apply_style(ctx: &egui::Context) {
         w.hovered.bg_fill = ITEM_HOVER;
         w.hovered.weak_bg_fill = ITEM_HOVER;
         w.hovered.bg_stroke = Stroke::new(1.0, neon(170));
-        w.hovered.fg_stroke = Stroke::new(1.5, NEON_CORE);
+        w.hovered.fg_stroke = Stroke::new(1.5, accent_core());
         w.hovered.corner_radius = radius;
         w.hovered.expansion = 0.0;
-        w.active.bg_fill = NEON_DEEP;
-        w.active.weak_bg_fill = NEON_DEEP;
-        w.active.bg_stroke = Stroke::new(1.0, NEON);
-        w.active.fg_stroke = Stroke::new(2.0, NEON);
+        w.active.bg_fill = accent_deep();
+        w.active.weak_bg_fill = accent_deep();
+        w.active.bg_stroke = Stroke::new(1.0, accent());
+        w.active.fg_stroke = Stroke::new(2.0, accent());
         w.active.corner_radius = radius;
         w.active.expansion = 0.0;
         w.open = w.hovered;
