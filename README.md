@@ -1,4 +1,4 @@
-# Sound Mod · Rust Neon Edition
+# Sound Mod
 
 **English** | [Português](README.pt-BR.md)
 

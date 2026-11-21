@@ -2,7 +2,7 @@
 name = "sound-mod"
 version = "1.0.0"
 edition = "2024"
-description = "Windows soundboard that plays sounds straight into your microphone (neon edition, Rust)"
+description = "Windows soundboard that plays sounds straight into your microphone"
 license = "MIT"
 publish = false
 
