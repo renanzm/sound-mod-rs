@@ -433,7 +433,7 @@ impl SoundApp {
                 ui.horizontal(|ui| {
                     widgets::title(ui, Icon::Waves, t("sounds"));
                     ui.add_space(8.0);
-                    let hint_w = (ui.available_width() - 500.0).max(40.0);
+                    let hint_w = (ui.available_width() - 670.0).max(40.0);
                     widgets::label_truncated(ui, t("sounds_hint"), hint_w, font(12.5), muted()).on_hover_text(t("sounds_hint"));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         if widgets::button(ui, t("add_sound"), Some(Icon::Plus), Style::Primary, 0.0).clicked() {
@@ -449,6 +449,13 @@ impl SoundApp {
                             let _ = std::fs::create_dir_all(&dir);
                             let _ = std::process::Command::new("explorer").arg(&dir).spawn();
                         }
+                        let mut compact = self.core.cfg.lock().compact_list;
+                        ui.add_space(4.0);
+                        if widgets::toggle(ui, &mut compact, t("compact_list")).on_hover_text(t("tip_compact")).changed() {
+                            self.core.cfg.lock().compact_list = compact;
+                            self.core.save_cfg();
+                        }
+                        ui.add_space(4.0);
                     });
                 });
                 ui.add_space(8.0);
@@ -463,18 +470,22 @@ impl SoundApp {
                     .show(ui, |ui| {
                         ui.add_space(4.0);
                         let ncols = cfg.collections.len();
+                        let compact = cfg.compact_list;
+                        if compact {
+                            ui.spacing_mut().item_spacing.y = 3.0; // linhas coladas
+                        }
                         for group in library::groups(&cfg) {
                             // sem nenhuma colecao, a lista fica sem cabecalhos
                             if ncols > 0 && (group.collection.is_some() || !group.slots.is_empty()) {
                                 let index = group.collection.and_then(|c| cfg.collections.iter().position(|x| x == c));
-                                self.collection_header(ui, group.collection, group.slots.len(), index, ncols, &mut actions);
+                                self.collection_header(ui, group.collection, group.slots.len(), index, ncols, compact, &mut actions);
                             }
                             if group.collection.is_some_and(|c| c.collapsed) {
                                 continue; // recolhida: some da lista, mas as teclas continuam valendo
                             }
                             let n = group.slots.len();
                             for (i, slot) in group.slots.iter().enumerate() {
-                                self.slot_row(ui, slot, (i > 0, i + 1 < n), &labels, time, &mut actions);
+                                self.slot_row(ui, slot, (i > 0, i + 1 < n), &labels, time, compact, &mut actions);
                             }
                         }
                     });
@@ -492,13 +503,15 @@ impl SoundApp {
         count: usize,
         index: Option<usize>,
         total: usize,
+        compact: bool,
         actions: &mut Vec<RowAction>,
     ) {
+        let (bsz, pad, gap) = if compact { (22.0, 1, 3) } else { (28.0, 4, 6) };
         Frame::new()
             .fill(header_fill())
-            .corner_radius(12)
-            .inner_margin(Margin { left: 6, right: 8, top: 4, bottom: 4 })
-            .outer_margin(Margin { left: 4, right: 10, top: 6, bottom: 6 })
+            .corner_radius(if compact { 9 } else { 12 })
+            .inner_margin(Margin { left: 6, right: 8, top: pad, bottom: pad })
+            .outer_margin(Margin { left: 4, right: 10, top: gap, bottom: gap })
             .stroke(Stroke::new(1.0, if coll.is_some() { neon(55) } else { border() }))
             .show(ui, |ui| {
                 ui.set_width(ui.available_width());
@@ -511,7 +524,7 @@ impl SoundApp {
                         return;
                     };
                     let chevron = if c.collapsed { Icon::ChevronRight } else { Icon::ChevronDown };
-                    let toggle = widgets::icon_button(ui, chevron, 28.0, Tint::Flat, true).on_hover_text(t("tip_collapse"));
+                    let toggle = widgets::icon_button(ui, chevron, bsz, Tint::Flat, true).on_hover_text(t("tip_collapse"));
                     let name = widgets::collection_name(ui, &c.name, !c.collapsed).on_hover_text(t("tip_collapse"));
                     if toggle.clicked() || name.clicked() {
                         actions.push(RowAction::ToggleCollection(c.name.clone()));
@@ -519,22 +532,22 @@ impl SoundApp {
                     widgets::count_badge(ui, count, true);
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         let i = index.unwrap_or(0);
-                        let del = widgets::icon_button(ui, Icon::Trash, 28.0, Tint::Danger, true);
+                        let del = widgets::icon_button(ui, Icon::Trash, bsz, Tint::Danger, true);
                         if del.on_hover_text(t("tip_delete_collection")).clicked() {
                             actions.push(RowAction::DeleteCollection(c.name.clone()));
                         }
-                        let ren = widgets::icon_button(ui, Icon::Edit, 28.0, Tint::Flat, true);
+                        let ren = widgets::icon_button(ui, Icon::Edit, bsz, Tint::Flat, true);
                         if ren.on_hover_text(t("tip_rename_collection")).clicked() {
                             actions.push(RowAction::RenameCollection(c.name.clone()));
                         }
-                        if widgets::icon_button(ui, Icon::ArrowDown, 28.0, Tint::Flat, i + 1 < total).clicked() {
+                        if widgets::icon_button(ui, Icon::ArrowDown, bsz, Tint::Flat, i + 1 < total).clicked() {
                             actions.push(RowAction::MoveCollection(c.name.clone(), 1));
                         }
-                        if widgets::icon_button(ui, Icon::ArrowUp, 28.0, Tint::Flat, i > 0).clicked() {
+                        if widgets::icon_button(ui, Icon::ArrowUp, bsz, Tint::Flat, i > 0).clicked() {
                             actions.push(RowAction::MoveCollection(c.name.clone(), -1));
                         }
                         ui.add_space(4.0);
-                        let add = widgets::button_sized(ui, t("add_here"), Some(Icon::Plus), Style::Ghost, 0.0, 28.0);
+                        let add = widgets::button_sized(ui, t("add_here"), Some(Icon::Plus), Style::Ghost, 0.0, bsz);
                         if add.on_hover_text(t("tip_add_here")).clicked() {
                             actions.push(RowAction::AddInto(c.name.clone()));
                         }
@@ -551,16 +564,19 @@ impl SoundApp {
         order: (bool, bool),
         collections: &[String],
         time: f64,
+        compact: bool,
         actions: &mut Vec<RowAction>,
     ) {
         let id = slot.id;
+        // lista compacta: botoes de 22 px, margens minimas, fonte menor
+        let (btn, pad, radius, after) = if compact { (22.0, 2, 10, 0.0) } else { (30.0, 7, 14, 7.0) };
         let state = self.core.channel_state(id);
         let (pos, dur, playing) = state.unwrap_or((0.0, 0.0, false));
         let k = theme::pulse(time, 5.0);
         let frame = Frame::new()
             .fill(if playing { mix(item(), accent_deep(), 0.55) } else { item() })
-            .corner_radius(14)
-            .inner_margin(Margin { left: 6, right: 10, top: 7, bottom: 7 })
+            .corner_radius(radius)
+            .inner_margin(Margin { left: 6, right: 10, top: pad, bottom: pad })
             .outer_margin(Margin { left: 4, right: 10, top: 0, bottom: 0 })
             .stroke(Stroke::new(1.0, if playing { neon((150.0 + 100.0 * k) as u8) } else { border() }))
             .shadow(if playing {
@@ -573,19 +589,20 @@ impl SoundApp {
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x = 6.0;
                 // setas de ordem empilhadas
+                let arrow = if compact { vec2(22.0, 10.0) } else { vec2(24.0, 15.0) };
                 ui.vertical(|ui| {
-                    ui.spacing_mut().item_spacing.y = 2.0;
-                    let up = widgets::icon_button_sized(ui, Icon::ArrowUp, vec2(24.0, 15.0), Tint::Flat, order.0);
+                    ui.spacing_mut().item_spacing.y = if compact { 1.0 } else { 2.0 };
+                    let up = widgets::icon_button_sized(ui, Icon::ArrowUp, arrow, Tint::Flat, order.0);
                     if up.on_hover_text(t("tip_up")).clicked() {
                         actions.push(RowAction::MoveSlot(id, -1));
                     }
-                    let down = widgets::icon_button_sized(ui, Icon::ArrowDown, vec2(24.0, 15.0), Tint::Flat, order.1);
+                    let down = widgets::icon_button_sized(ui, Icon::ArrowDown, arrow, Tint::Flat, order.1);
                     if down.on_hover_text(t("tip_down")).clicked() {
                         actions.push(RowAction::MoveSlot(id, 1));
                     }
                 });
                 let target = KeyTarget::Slot(id);
-                let kr = widgets::key_button(
+                let kr = widgets::key_button_sized(
                     ui,
                     Icon::Play,
                     &slot.key,
@@ -594,6 +611,7 @@ impl SoundApp {
                     self.capture.is_some(),
                     false,
                     time,
+                    compact,
                 );
                 if kr.action.clicked() {
                     actions.push(RowAction::Toggle(id));
@@ -604,19 +622,19 @@ impl SoundApp {
                 if kr.clear.clicked() {
                     actions.push(RowAction::Clear(target));
                 }
-                if widgets::icon_button(ui, Icon::Folder, 30.0, Tint::Normal, true).on_hover_text(t("tip_file")).clicked() {
+                if widgets::icon_button(ui, Icon::Folder, btn, Tint::Normal, true).on_hover_text(t("tip_file")).clicked() {
                     actions.push(RowAction::Pick(id));
                 }
-                self.collection_menu(ui, slot, collections, actions);
+                self.collection_menu(ui, slot, collections, btn, actions);
 
                 let compact = ui.available_width() < 640.0;
                 let (time_w, prog_w, vol_w) = if compact { (76.0, 80.0, 56.0) } else { (86.0, 150.0, 80.0) };
-                let fixed = time_w + prog_w + 18.0 + vol_w + 4.0 * 30.0 + 9.0 * 6.0;
+                let fixed = time_w + prog_w + 18.0 + vol_w + 4.0 * btn + 9.0 * 6.0;
                 let name_w = (ui.available_width() - fixed).max(50.0);
                 let empty = slot.path.is_empty();
                 let name = if empty { t("no_file").to_string() } else { config::file_name(&slot.path) };
                 let color = if empty { muted() } else if playing { accent_core() } else { txt() };
-                let r = widgets::label_truncated(ui, &name, name_w, bold(13.5), color);
+                let r = widgets::label_truncated(ui, &name, name_w, bold(if compact { 12.5 } else { 13.5 }), color);
                 if !empty {
                     r.on_hover_text(&slot.path);
                 }
@@ -626,7 +644,7 @@ impl SoundApp {
                 } else {
                     "-:-- / -:--".to_string()
                 };
-                let (tr, _) = ui.allocate_exact_size(vec2(time_w, 20.0), Sense::hover());
+                let (tr, _) = ui.allocate_exact_size(vec2(time_w, if compact { 16.0 } else { 20.0 }), Sense::hover());
                 let time_color = if playing { accent_core() } else { muted() };
                 ui.painter().text(tr.right_center(), Align2::RIGHT_CENTER, time_text, font(12.0), time_color);
 
@@ -636,7 +654,7 @@ impl SoundApp {
                     actions.push(RowAction::Seek(id, p as f64));
                 }
 
-                let (vr, _) = ui.allocate_exact_size(vec2(18.0, 18.0), Sense::hover());
+                let (vr, _) = ui.allocate_exact_size(vec2(btn * 0.6, btn * 0.6), Sense::hover());
                 icons::paint(ui.painter(), vr.shrink(1.0), Icon::Volume, muted());
                 let mut vol = slot.volume;
                 let vresp = widgets::slider(ui, &mut vol, 0.0..=1.5, vol_w, true, true).on_hover_text(t("tip_volume"));
@@ -647,29 +665,29 @@ impl SoundApp {
                     actions.push(RowAction::Volume(id, vol, true));
                 }
 
-                if widgets::icon_button(ui, Icon::Play, 30.0, Tint::Normal, true).on_hover_text(t("tip_play")).clicked() {
+                if widgets::icon_button(ui, Icon::Play, btn, Tint::Normal, true).on_hover_text(t("tip_play")).clicked() {
                     actions.push(RowAction::Play(id));
                 }
-                if widgets::icon_button(ui, Icon::Pause, 30.0, Tint::Normal, true).on_hover_text(t("tip_pause")).clicked() {
+                if widgets::icon_button(ui, Icon::Pause, btn, Tint::Normal, true).on_hover_text(t("tip_pause")).clicked() {
                     actions.push(RowAction::Pause(id));
                 }
-                if widgets::icon_button(ui, Icon::Stop, 30.0, Tint::Normal, true).on_hover_text(t("tip_stop")).clicked() {
+                if widgets::icon_button(ui, Icon::Stop, btn, Tint::Normal, true).on_hover_text(t("tip_stop")).clicked() {
                     actions.push(RowAction::Stop(id));
                 }
-                if widgets::icon_button(ui, Icon::Trash, 30.0, Tint::Danger, true).on_hover_text(t("tip_remove")).clicked() {
+                if widgets::icon_button(ui, Icon::Trash, btn, Tint::Danger, true).on_hover_text(t("tip_remove")).clicked() {
                     actions.push(RowAction::Remove(id));
                 }
             });
         });
-        ui.add_space(7.0);
+        ui.add_space(after);
     }
 
     /// Botao de colecao do som: menu com "(sem colecao)", as colecoes e "Nova colecao".
-    fn collection_menu(&self, ui: &mut Ui, slot: &Slot, collections: &[String], actions: &mut Vec<RowAction>) {
+    fn collection_menu(&self, ui: &mut Ui, slot: &Slot, collections: &[String], size: f32, actions: &mut Vec<RowAction>) {
         let current = slot.collection.clone();
         let tip = format!("{}: {}", t("tip_collection"), current.as_deref().unwrap_or(t("no_collection")));
         let tint = if current.is_some() { Tint::Normal } else { Tint::Flat };
-        let resp = widgets::icon_button(ui, Icon::Layers, 30.0, tint, true).on_hover_text(tip);
+        let resp = widgets::icon_button(ui, Icon::Layers, size, tint, true).on_hover_text(tip);
         egui::Popup::menu(&resp).width(220.0).show(|ui| {
             ui.style_mut().override_font_id = Some(font(13.5));
             if ui.selectable_label(current.is_none(), t("no_collection")).clicked() && current.is_some() {

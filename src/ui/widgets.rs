@@ -146,14 +146,15 @@ fn key_label(key: &str, capturing: bool) -> String {
     }
 }
 
-fn key_pill_width(ui: &Ui, label: &str) -> f32 {
-    let w = ui.painter().layout_no_wrap(label.to_string(), bold(13.0), Color32::PLACEHOLDER).size().x;
-    (w + 46.0).max(88.0)
+fn key_pill_width(ui: &Ui, label: &str, compact: bool) -> f32 {
+    let font = bold(if compact { 12.0 } else { 13.0 });
+    let w = ui.painter().layout_no_wrap(label.to_string(), font, Color32::PLACEHOLDER).size().x;
+    if compact { (w + 38.0).max(72.0) } else { (w + 46.0).max(88.0) }
 }
 
 /// Largura total do botao de tecla (pilula + lapis + ⌫).
 pub fn key_button_width(ui: &Ui, key: &str, capturing: bool) -> f32 {
-    key_pill_width(ui, &key_label(key, capturing)) + 2.0 * (2.0 + 24.0)
+    key_pill_width(ui, &key_label(key, capturing), false) + 2.0 * (2.0 + 24.0)
 }
 
 /// Botao dividido: a pilula executa a acao, o lapis troca a tecla e o ⌫ remove a tecla.
@@ -168,15 +169,32 @@ pub fn key_button(
     danger: bool,
     time: f64,
 ) -> KeyResponse {
+    key_button_sized(ui, icon, key, active, capturing, capture_locked, danger, time, false)
+}
+
+/// Botao de tecla; `compact` = versao baixa da lista compacta (24 px em vez de 32).
+#[allow(clippy::too_many_arguments)]
+pub fn key_button_sized(
+    ui: &mut Ui,
+    icon: Icon,
+    key: &str,
+    active: bool,
+    capturing: bool,
+    capture_locked: bool,
+    danger: bool,
+    time: f64,
+    compact: bool,
+) -> KeyResponse {
     let label = key_label(key, capturing);
-    let w = key_pill_width(ui, &label);
-    let total = w + 2.0 * (2.0 + 24.0);
+    let w = key_pill_width(ui, &label, compact);
+    let (pill_h, small) = if compact { (24.0, 20.0) } else { (32.0, 24.0) };
+    let total = w + 2.0 * (2.0 + small);
     // layout proprio da esquerda para a direita: funciona tambem dentro de um layout invertido
-    ui.allocate_ui_with_layout(vec2(total, 32.0), Layout::left_to_right(Align::Center), |ui| {
+    ui.allocate_ui_with_layout(vec2(total, pill_h), Layout::left_to_right(Align::Center), |ui| {
         ui.spacing_mut().item_spacing.x = 2.0;
-        let galley = ui.painter().layout_no_wrap(label, bold(13.0), Color32::PLACEHOLDER);
+        let galley = ui.painter().layout_no_wrap(label, bold(if compact { 12.0 } else { 13.0 }), Color32::PLACEHOLDER);
         let sense = if capturing { Sense::hover() } else { Sense::click() };
-        let (rect, action) = ui.allocate_exact_size(vec2(w, 32.0), sense);
+        let (rect, action) = ui.allocate_exact_size(vec2(w, pill_h), sense);
         if ui.is_rect_visible(rect) {
             let h = hover_anim(ui, action.id, action.hovered());
             let pulse = theme::pulse(time, 6.0);
@@ -197,23 +215,24 @@ pub fn key_button(
                 )
             };
             if glow_a >= 1.0 {
-                theme::glow(p, rect, 16.0, alpha_of(accent, glow_a as u8), 16.0);
+                theme::glow(p, rect, pill_h / 2.0, alpha_of(accent, glow_a as u8), 16.0);
             }
             let body = if action.is_pointer_button_down_on() { rect.shrink(1.0) } else { rect };
             if active && !danger && theme::has_spectrum() {
-                theme::fill(p, body, CornerRadius::same(16), fill);
+                theme::fill(p, body, CornerRadius::same((pill_h / 2.0) as u8), fill);
             } else {
-                p.rect(body, CornerRadius::same(16), fill, stroke, StrokeKind::Inside);
+                p.rect(body, CornerRadius::same((pill_h / 2.0) as u8), fill, stroke, StrokeKind::Inside);
             }
-            let icon_rect = Rect::from_center_size(pos2(rect.left() + 18.0, rect.center().y), vec2(13.0, 13.0));
+            let (ix, isz, tx) = if compact { (14.0, 10.0, 25.0) } else { (18.0, 13.0, 32.0) };
+            let icon_rect = Rect::from_center_size(pos2(rect.left() + ix, rect.center().y), vec2(isz, isz));
             icons::paint(p, icon_rect, icon, fg);
-            let x = rect.left() + 32.0 + (w - 40.0 - galley.size().x) / 2.0;
+            let x = rect.left() + tx + (w - tx - 8.0 - galley.size().x) / 2.0;
             p.galley(pos2(x, rect.center().y - galley.size().y / 2.0), galley, fg);
         }
         let action = if capturing { action } else { action.on_hover_cursor(CursorIcon::PointingHand) };
         let can_edit = !capturing && !capture_locked;
-        let edit = icon_button(ui, Icon::Edit, 24.0, Tint::Flat, can_edit).on_hover_text(t("tip_edit"));
-        let clear = icon_button(ui, Icon::Backspace, 24.0, Tint::Flat, can_edit && !key.is_empty())
+        let edit = icon_button(ui, Icon::Edit, small, Tint::Flat, can_edit).on_hover_text(t("tip_edit"));
+        let clear = icon_button(ui, Icon::Backspace, small, Tint::Flat, can_edit && !key.is_empty())
             .on_hover_text(t("tip_clear"));
         KeyResponse { action, edit, clear }
     })

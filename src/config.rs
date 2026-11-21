@@ -75,6 +75,8 @@ pub struct Config {
     pub voice_effect: String,
     /// Cor do neon da interface (ver ui::theme::ACCENTS).
     pub accent: String,
+    /// Lista de sons compacta (linhas finas).
+    pub compact_list: bool,
     pub hear_self: bool,
     /// [inicio, fim] em segundos do trecho do clipe que toca, ou None = inteiro.
     pub clip_trim: Option<[f64; 2]>,
@@ -104,6 +106,7 @@ impl Default for Config {
             clip_seconds: 5,
             voice_effect: "normal".into(),
             accent: "green".into(),
+            compact_list: false,
             hear_self: false,
             clip_trim: None,
             save_clip_key: "f5".into(),
