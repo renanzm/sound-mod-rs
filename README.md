@@ -2,9 +2,9 @@
 
 **English** | [Português](README.pt-BR.md)
 
-![Sound Mod in its 8 neon colors, one vertical slice per color](docs/screenshot.png)
+![Sound Mod in its 8 neon colors and the Sunset theme, one vertical slice each](docs/screenshot.png)
 
-**A Windows soundboard that plays sounds straight into your microphone**, rebuilt in Rust with a dark-graphite neon interface in 8 colors. Press a key (or click a button) and the sound goes out on your mic channel for Discord, games, calls and streams, while you keep talking normally.
+**A Windows soundboard that plays sounds straight into your microphone**, rebuilt in Rust with a dark neon interface in 8 colors plus a sunset theme. Press a key (or click a button) and the sound goes out on your mic channel for Discord, games, calls and streams, while you keep talking normally.
 
 It can also record the **last few seconds of your PC audio** (5 s by default) so you can trim it and play it back on your mic.
 
@@ -21,7 +21,8 @@ It can also record the **last few seconds of your PC audio** (5 s by default) so
 - **PC audio clip**: one key saves the last N seconds to `clips/last_clip.wav`, another plays it. Drag the neon handles on the waveform to **choose the part** that plays, and **Save as sound** keeps that part as a new sound (stored in `sounds/`).
 - **Headphone monitor**: you hear the sounds while they go out on your mic.
 - **Live level meters** for the mic and the output, and a pulsing **Live** indicator.
-- **8 neon colors**: green, cyan, blue, purple, pink, red, orange or yellow, picked from the glowing dot in the header. The whole interface, the window border and the taskbar icon change instantly, and the choice is saved (the screenshot above shows all eight, one slice each).
+- **8 neon colors and a theme**: green, cyan, blue, purple, pink, red, orange or yellow, or the **Sunset** theme (night-violet backgrounds with a magenta → coral → orange → warm-yellow gradient on the title, buttons, sliders, meters and waveform), picked from the glowing dot in the header. The whole interface, the window border and the window icon change instantly, and the choice is saved. The screenshot above shows all nine, one slice each.
+- **Colorful icon**: the five sound bars of the logo each glow in a different color (in the Sunset palette when that theme is on); the frame follows the chosen color.
 - **English and Portuguese**: follows your Windows language, switchable at any time.
 - **Your data survives updates**: settings, saved sounds and the clip live in `%APPDATA%\SoundMod`, not in the program folder, so replacing the program doesn't erase anything. **Data folder** (bottom right) opens it.
 - **Single `.exe`**, no runtime, no Python, starts instantly.

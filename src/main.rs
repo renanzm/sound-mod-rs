@@ -19,6 +19,8 @@ use eframe::egui;
 
 fn main() -> eframe::Result {
     install_panic_log();
+    // o icone da janela usa a cor do neon salva (o SoundApp le a config completa depois)
+    ui::theme::set_accent(&config::peek_accent().unwrap_or_default());
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("Sound Mod")

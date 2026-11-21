@@ -1,49 +1,156 @@
-//! Identidade visual: cinza escuro + neon (verde fluorescente por padrao; 8 cores a escolher).
+//! Identidade visual: cinza escuro + neon (verde fluorescente por padrao; 8 cores a escolher)
+//! e o tema "Por do sol" (violeta da noite com degrade magenta -> amarelo quente).
 //!
 //! Todas as cores da interface vem daqui. O "neon" e feito com sombras coloridas sem
 //! deslocamento (o egui desenha a sombra borrada) e texto repintado com halo transparente.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use parking_lot::Mutex;
+
 use eframe::egui::{
     self, Color32, CornerRadius, FontData, FontDefinitions, FontFamily, FontId, Painter, Pos2, Rect, Shadow, Stroke,
     Vec2, vec2,
 };
 
-// ---- paleta ----
-pub const BG: Color32 = Color32::from_rgb(0x0A, 0x0C, 0x0E);
-pub const PANEL: Color32 = Color32::from_rgb(0x12, 0x15, 0x18);
-pub const ITEM: Color32 = Color32::from_rgb(0x19, 0x1D, 0x21);
-pub const ITEM_HOVER: Color32 = Color32::from_rgb(0x21, 0x27, 0x2C);
-pub const BORDER: Color32 = Color32::from_rgb(0x26, 0x2D, 0x33);
-pub const TEXT: Color32 = Color32::from_rgb(0xE3, 0xF0, 0xE6);
-pub const MUTED: Color32 = Color32::from_rgb(0x84, 0x93, 0x8A);
-pub const DIM: Color32 = Color32::from_rgb(0x41, 0x4B, 0x46);
+// ---- cores de base (fundo, paineis, texto) ----
+
+/// Cores neutras da interface. O tema "Por do sol" troca o grafite por violeta escuro.
+pub struct Base {
+    pub bg: Color32,
+    pub panel: Color32,
+    pub item: Color32,
+    pub item_hover: Color32,
+    pub border: Color32,
+    pub text: Color32,
+    pub muted: Color32,
+    pub dim: Color32,
+    /// Pocos escuros (forma de onda, logo, campos de texto).
+    pub well: Color32,
+    /// Trilho apagado de sliders e medidores.
+    pub track: Color32,
+    /// Fundo dos cabecalhos de colecao.
+    pub header: Color32,
+}
+
+pub const GRAPHITE: Base = Base {
+    bg: Color32::from_rgb(0x0A, 0x0C, 0x0E),
+    panel: Color32::from_rgb(0x12, 0x15, 0x18),
+    item: Color32::from_rgb(0x19, 0x1D, 0x21),
+    item_hover: Color32::from_rgb(0x21, 0x27, 0x2C),
+    border: Color32::from_rgb(0x26, 0x2D, 0x33),
+    text: Color32::from_rgb(0xE3, 0xF0, 0xE6),
+    muted: Color32::from_rgb(0x84, 0x93, 0x8A),
+    dim: Color32::from_rgb(0x41, 0x4B, 0x46),
+    well: Color32::from_rgb(0x0D, 0x10, 0x12),
+    track: Color32::from_rgb(0x24, 0x2A, 0x2F),
+    header: Color32::from_rgb(0x15, 0x19, 0x1C),
+};
+
+/// Violeta da noite (Deep Violet #3B146B escurecido), para o tema "Por do sol".
+pub const DUSK: Base = Base {
+    bg: Color32::from_rgb(0x11, 0x08, 0x1E),
+    panel: Color32::from_rgb(0x1A, 0x0E, 0x2B),
+    item: Color32::from_rgb(0x24, 0x14, 0x3A),
+    item_hover: Color32::from_rgb(0x2F, 0x1B, 0x4A),
+    border: Color32::from_rgb(0x3D, 0x24, 0x5E),
+    text: Color32::from_rgb(0xFB, 0xEC, 0xF1),
+    muted: Color32::from_rgb(0xB8, 0x9C, 0xC4),
+    dim: Color32::from_rgb(0x60, 0x48, 0x78),
+    well: Color32::from_rgb(0x0E, 0x06, 0x19),
+    track: Color32::from_rgb(0x33, 0x22, 0x4A),
+    header: Color32::from_rgb(0x20, 0x11, 0x34),
+};
+
 pub const DANGER: Color32 = Color32::from_rgb(0xFF, 0x3B, 0x5C);
 pub const DANGER_DEEP: Color32 = Color32::from_rgb(0x2B, 0x0E, 0x14);
 pub const WARN: Color32 = Color32::from_rgb(0xFF, 0xD2, 0x3F);
 
 pub const RADIUS_CARD: u8 = 18;
 
-// ---- cor do neon (escolhida pelo usuario) ----
+pub fn base() -> &'static Base {
+    current_accent().base
+}
+pub fn bg() -> Color32 {
+    base().bg
+}
+pub fn panel() -> Color32 {
+    base().panel
+}
+pub fn item() -> Color32 {
+    base().item
+}
+pub fn item_hover() -> Color32 {
+    base().item_hover
+}
+pub fn border() -> Color32 {
+    base().border
+}
+pub fn txt() -> Color32 {
+    base().text
+}
+pub fn muted() -> Color32 {
+    base().muted
+}
+pub fn dim() -> Color32 {
+    base().dim
+}
+pub fn well() -> Color32 {
+    base().well
+}
+pub fn track() -> Color32 {
+    base().track
+}
+pub fn header_fill() -> Color32 {
+    base().header
+}
 
-/// Uma cor de neon: o tubo (cor forte) e o nucleo claro (o "filamento").
+// ---- cor do neon e temas (escolhidos pelo usuario) ----
+
+/// Uma cor de neon (tubo forte + nucleo claro) ou um tema com degrade.
 pub struct Accent {
     /// Nome na config (`"accent"`) e chave de traducao `accent_<key>`.
     pub key: &'static str,
     pub neon: Color32,
     pub core: Color32,
+    pub base: &'static Base,
+    /// Degrade do tema (esquerda -> direita); None = cor unica.
+    pub spectrum: Option<&'static [Color32]>,
+    /// Texto sobre o neon; None = escuro ou branco pela luminancia.
+    pub on: Option<Color32>,
 }
 
-pub const ACCENTS: [Accent; 8] = [
-    Accent { key: "green", neon: Color32::from_rgb(0x39, 0xFF, 0x14), core: Color32::from_rgb(0xC8, 0xFF, 0xB8) },
-    Accent { key: "cyan", neon: Color32::from_rgb(0x00, 0xE5, 0xFF), core: Color32::from_rgb(0xC4, 0xF9, 0xFF) },
-    Accent { key: "blue", neon: Color32::from_rgb(0x2E, 0x7D, 0xFF), core: Color32::from_rgb(0xC6, 0xDC, 0xFF) },
-    Accent { key: "purple", neon: Color32::from_rgb(0xB0, 0x3C, 0xFF), core: Color32::from_rgb(0xE8, 0xCC, 0xFF) },
-    Accent { key: "pink", neon: Color32::from_rgb(0xFF, 0x2B, 0xD6), core: Color32::from_rgb(0xFF, 0xC8, 0xF3) },
-    Accent { key: "red", neon: Color32::from_rgb(0xFF, 0x2E, 0x4D), core: Color32::from_rgb(0xFF, 0xC6, 0xCE) },
-    Accent { key: "orange", neon: Color32::from_rgb(0xFF, 0x8A, 0x1F), core: Color32::from_rgb(0xFF, 0xDE, 0xC2) },
-    Accent { key: "yellow", neon: Color32::from_rgb(0xFF, 0xE8, 0x1F), core: Color32::from_rgb(0xFF, 0xF8, 0xC6) },
+const fn neon_color(key: &'static str, neon: Color32, core: Color32) -> Accent {
+    Accent { key, neon, core, base: &GRAPHITE, spectrum: None, on: None }
+}
+
+/// Paleta do por do sol: Magenta, Coral Pink, Coral, Orange, Warm Yellow.
+pub const SUNSET: [Color32; 5] = [
+    Color32::from_rgb(0xC9, 0x34, 0x9B),
+    Color32::from_rgb(0xF3, 0x6A, 0x78),
+    Color32::from_rgb(0xF8, 0x75, 0x72),
+    Color32::from_rgb(0xFF, 0x9B, 0x55),
+    Color32::from_rgb(0xFF, 0xB4, 0x58),
+];
+
+pub const ACCENTS: [Accent; 9] = [
+    neon_color("green", Color32::from_rgb(0x39, 0xFF, 0x14), Color32::from_rgb(0xC8, 0xFF, 0xB8)),
+    neon_color("cyan", Color32::from_rgb(0x00, 0xE5, 0xFF), Color32::from_rgb(0xC4, 0xF9, 0xFF)),
+    neon_color("blue", Color32::from_rgb(0x2E, 0x7D, 0xFF), Color32::from_rgb(0xC6, 0xDC, 0xFF)),
+    neon_color("purple", Color32::from_rgb(0xB0, 0x3C, 0xFF), Color32::from_rgb(0xE8, 0xCC, 0xFF)),
+    neon_color("pink", Color32::from_rgb(0xFF, 0x2B, 0xD6), Color32::from_rgb(0xFF, 0xC8, 0xF3)),
+    neon_color("red", Color32::from_rgb(0xFF, 0x2E, 0x4D), Color32::from_rgb(0xFF, 0xC6, 0xCE)),
+    neon_color("orange", Color32::from_rgb(0xFF, 0x8A, 0x1F), Color32::from_rgb(0xFF, 0xDE, 0xC2)),
+    neon_color("yellow", Color32::from_rgb(0xFF, 0xE8, 0x1F), Color32::from_rgb(0xFF, 0xF8, 0xC6)),
+    // tema: violeta da noite com degrade magenta -> amarelo quente
+    Accent {
+        key: "sunset",
+        neon: Color32::from_rgb(0xF3, 0x6A, 0x78),
+        core: Color32::from_rgb(0xFF, 0xD9, 0xC4),
+        base: &DUSK,
+        spectrum: Some(&SUNSET),
+        on: Some(Color32::from_rgb(0x2A, 0x0B, 0x4A)),
+    },
 ];
 
 static ACCENT: AtomicUsize = AtomicUsize::new(0);
@@ -69,11 +176,14 @@ pub fn accent_core() -> Color32 {
 
 /// Fundo escuro tingido com o neon (itens ativos/tocando).
 pub fn accent_deep() -> Color32 {
-    mix(BG, accent(), 0.14)
+    mix(bg(), accent(), 0.14)
 }
 
 /// Texto sobre fundo neon: escuro nas cores claras, branco nas escuras.
 pub fn on_accent() -> Color32 {
+    if let Some(c) = current_accent().on {
+        return c;
+    }
     let c = accent();
     let lum = 0.2126 * c.r() as f32 + 0.7152 * c.g() as f32 + 0.0722 * c.b() as f32;
     if lum > 128.0 { Color32::from_rgb(0x05, 0x0B, 0x08) } else { Color32::WHITE }
@@ -81,6 +191,35 @@ pub fn on_accent() -> Color32 {
 
 pub fn neon(alpha: u8) -> Color32 {
     alpha_of(accent(), alpha)
+}
+
+/// Cor do degrade na posicao `t` (0 = esquerda, 1 = direita); sem degrade, a cor do neon.
+pub fn spectrum_at(t: f32) -> Color32 {
+    spectrum_of(current_accent(), t)
+}
+
+pub fn spectrum_of(a: &Accent, t: f32) -> Color32 {
+    let Some(s) = a.spectrum else { return a.neon };
+    let x = t.clamp(0.0, 1.0) * (s.len() - 1) as f32;
+    let i = (x.floor() as usize).min(s.len() - 2);
+    mix(s[i], s[i + 1], x - i as f32)
+}
+
+/// O tema atual tem degrade?
+pub fn has_spectrum() -> bool {
+    current_accent().spectrum.is_some()
+}
+
+/// Cores das 5 barras do icone (tubo, nucleo): arco-iris nas cores de neon, a paleta no tema.
+pub fn bar_colors() -> [([u8; 3], [u8; 3]); 5] {
+    if !has_spectrum() {
+        return crate::icon_raster::BAR_COLORS;
+    }
+    std::array::from_fn(|i| {
+        let c = spectrum_at(i as f32 / 4.0);
+        let core = mix(c, Color32::WHITE, 0.55);
+        ([c.r(), c.g(), c.b()], [core.r(), core.g(), core.b()])
+    })
 }
 
 pub fn alpha_of(c: Color32, alpha: u8) -> Color32 {
@@ -91,6 +230,31 @@ pub fn mix(a: Color32, b: Color32, t: f32) -> Color32 {
     let t = t.clamp(0.0, 1.0);
     let l = |x: u8, y: u8| (x as f32 + (y as f32 - x as f32) * t).round() as u8;
     Color32::from_rgba_unmultiplied(l(a.r(), b.r()), l(a.g(), b.g()), l(a.b(), b.b()), l(a.a(), b.a()))
+}
+
+/// Textura 256x1 com o degrade do tema atual (None sem degrade). Recriada em `apply_style`.
+static GRADIENT: Mutex<Option<egui::TextureHandle>> = Mutex::new(None);
+
+fn load_gradient(ctx: &egui::Context) {
+    let tex = has_spectrum().then(|| {
+        let pixels: Vec<Color32> = (0..256).map(|i| spectrum_at(i as f32 / 255.0)).collect();
+        let image = egui::ColorImage::new([256, 1], pixels);
+        ctx.load_texture("theme-gradient", image, egui::TextureOptions::LINEAR)
+    });
+    *GRADIENT.lock() = tex;
+}
+
+/// Preenche um retangulo arredondado: com o degrade do tema, ou com `fallback` se nao houver.
+pub fn fill(p: &Painter, rect: Rect, radius: impl Into<CornerRadius>, fallback: Color32) {
+    match GRADIENT.lock().as_ref() {
+        Some(tex) => {
+            let uv = Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
+            p.add(egui::epaint::RectShape::filled(rect, radius, Color32::WHITE).with_texture(tex.id(), uv));
+        }
+        None => {
+            p.rect_filled(rect, radius, fallback);
+        }
+    }
 }
 
 // ---- fontes ----
@@ -155,11 +319,11 @@ pub fn apply_style(ctx: &egui::Context) {
         let v = &mut style.visuals;
         v.dark_mode = true;
         v.override_text_color = None;
-        v.panel_fill = BG;
-        v.window_fill = PANEL;
-        v.extreme_bg_color = Color32::from_rgb(0x0E, 0x11, 0x13);
-        v.faint_bg_color = ITEM;
-        v.code_bg_color = ITEM;
+        v.panel_fill = bg();
+        v.window_fill = panel();
+        v.extreme_bg_color = well();
+        v.faint_bg_color = item();
+        v.code_bg_color = item();
         v.warn_fg_color = WARN;
         v.error_fg_color = DANGER;
         v.hyperlink_color = accent();
@@ -174,18 +338,18 @@ pub fn apply_style(ctx: &egui::Context) {
 
         let w = &mut v.widgets;
         let radius = CornerRadius::same(10);
-        w.noninteractive.bg_fill = PANEL;
-        w.noninteractive.weak_bg_fill = PANEL;
-        w.noninteractive.bg_stroke = Stroke::new(1.0, BORDER);
-        w.noninteractive.fg_stroke = Stroke::new(1.0, TEXT);
+        w.noninteractive.bg_fill = panel();
+        w.noninteractive.weak_bg_fill = panel();
+        w.noninteractive.bg_stroke = Stroke::new(1.0, border());
+        w.noninteractive.fg_stroke = Stroke::new(1.0, txt());
         w.noninteractive.corner_radius = radius;
-        w.inactive.bg_fill = ITEM;
-        w.inactive.weak_bg_fill = ITEM;
-        w.inactive.bg_stroke = Stroke::new(1.0, BORDER);
-        w.inactive.fg_stroke = Stroke::new(1.0, TEXT);
+        w.inactive.bg_fill = item();
+        w.inactive.weak_bg_fill = item();
+        w.inactive.bg_stroke = Stroke::new(1.0, border());
+        w.inactive.fg_stroke = Stroke::new(1.0, txt());
         w.inactive.corner_radius = radius;
-        w.hovered.bg_fill = ITEM_HOVER;
-        w.hovered.weak_bg_fill = ITEM_HOVER;
+        w.hovered.bg_fill = item_hover();
+        w.hovered.weak_bg_fill = item_hover();
         w.hovered.bg_stroke = Stroke::new(1.0, neon(170));
         w.hovered.fg_stroke = Stroke::new(1.5, accent_core());
         w.hovered.corner_radius = radius;
@@ -197,8 +361,9 @@ pub fn apply_style(ctx: &egui::Context) {
         w.active.corner_radius = radius;
         w.active.expansion = 0.0;
         w.open = w.hovered;
-        w.open.bg_fill = ITEM_HOVER;
+        w.open.bg_fill = item_hover();
     });
+    load_gradient(ctx);
 }
 
 // ---- neon ----

@@ -258,6 +258,14 @@ pub fn timestamp() -> String {
 
 // ---- carregar e salvar ----
 
+/// So a cor do neon salva (sem importar nada): a janela ja nasce com o icone na cor certa.
+pub fn peek_accent() -> Option<String> {
+    let bytes = std::fs::read(dirs().config()).ok()?;
+    let text = bytes.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(&bytes); // BOM do Bloco de Notas
+    let value: Value = serde_json::from_slice(text).ok()?;
+    value.get("accent")?.as_str().map(String::from)
+}
+
 /// Le a config (importando a da versao antiga se for a primeira vez).
 /// Retorna a config e, se houve importacao, a pasta de onde ela veio.
 pub fn load() -> (Config, Option<PathBuf>) {

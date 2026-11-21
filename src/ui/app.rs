@@ -93,11 +93,7 @@ impl SoundApp {
         theme::install_fonts(&cc.egui_ctx);
         theme::apply_style(&cc.egui_ctx);
         super::window::style(cc);
-        if cfg.accent != theme::ACCENTS[0].key {
-            // a janela nasce com o icone verde (main.rs); troca para a cor salva
-            let icon = Arc::new(super::logo::icon_data());
-            cc.egui_ctx.send_viewport_cmd(egui::ViewportCommand::Icon(Some(icon)));
-        }
+
         let notice = migrated.map(|path| tf("config_imported", &[("path", &path.display())]));
         let (inputs, outputs) = engine::list_devices();
         let (def_in, def_out) = engine::default_device_names();
@@ -307,8 +303,21 @@ impl SoundApp {
                         ui.painter().galley(pos + off, galley.clone(), neon(a));
                     }
                 }
-                ui.painter().galley(pos, galley, accent_core());
-                ui.label(RichText::new(t("tagline")).font(font(12.5)).color(MUTED));
+                if theme::has_spectrum() {
+                    // nucleo do titulo em degrade, letra a letra
+                    let mut job = egui::text::LayoutJob::default();
+                    let letters: Vec<char> = "SOUND MOD".chars().collect();
+                    for (i, ch) in letters.iter().enumerate() {
+                        let c = mix(theme::spectrum_at(i as f32 / (letters.len() - 1) as f32), Color32::WHITE, 0.25);
+                        let format = egui::TextFormat { font_id: display(29.0), extra_letter_spacing: 3.0, color: c, ..Default::default() };
+                        job.append(&ch.to_string(), 0.0, format);
+                    }
+                    let colored = ui.painter().layout_job(job);
+                    ui.painter().galley(pos, colored, accent_core());
+                } else {
+                    ui.painter().galley(pos, galley, accent_core());
+                }
+                ui.label(RichText::new(t("tagline")).font(font(12.5)).color(muted()));
             });
 
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -327,7 +336,7 @@ impl SoundApp {
                         .inner_margin(Margin { left: 14, right: 6, top: 5, bottom: 5 })
                         .show(ui, |ui| {
                             ui.spacing_mut().item_spacing.x = 10.0;
-                            ui.label(RichText::new(label).font(bold(12.0)).color(mix(DANGER, TEXT, 0.35)));
+                            ui.label(RichText::new(label).font(bold(12.0)).color(mix(DANGER, txt(), 0.35)));
                             let kr = widgets::key_button(ui, Icon::Stop, &key, false, capturing, self.capture.is_some(), true, time);
                             if kr.action.clicked() {
                                 self.core.engine.stop_all();
@@ -378,11 +387,17 @@ impl SoundApp {
         let mut picked = None;
         egui::Popup::menu(&resp).width(200.0).show(|ui| {
             ui.spacing_mut().item_spacing.y = 2.0;
-            ui.label(RichText::new(t("neon_color").to_uppercase()).font(bold(11.5)).color(MUTED));
+            ui.label(RichText::new(t("neon_color").to_uppercase()).font(bold(11.5)).color(muted()));
             ui.add_space(2.0);
-            for a in &theme::ACCENTS {
+            for (themes, a) in theme::ACCENTS.iter().map(|a| (a.spectrum.is_some(), a)) {
+                if themes && a.key == theme::ACCENTS.iter().find(|x| x.spectrum.is_some()).map_or("", |x| x.key) {
+                    ui.add_space(4.0);
+                    ui.separator();
+                    ui.label(RichText::new(t("themes").to_uppercase()).font(bold(11.5)).color(muted()));
+                    ui.add_space(2.0);
+                }
                 let name = i18n::accent_name(a.key);
-                if widgets::accent_option(ui, a.neon, a.core, name, a.key == current).clicked() {
+                if widgets::accent_option(ui, a, name, a.key == current).clicked() {
                     picked = Some(a.key);
                 }
             }
@@ -416,7 +431,7 @@ impl SoundApp {
                     widgets::title(ui, Icon::Waves, t("sounds"));
                     ui.add_space(8.0);
                     let hint_w = (ui.available_width() - 360.0).max(40.0);
-                    widgets::label_truncated(ui, t("sounds_hint"), hint_w, font(12.5), MUTED);
+                    widgets::label_truncated(ui, t("sounds_hint"), hint_w, font(12.5), muted());
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         if widgets::button(ui, t("add_sound"), Some(Icon::Plus), Style::Primary, 0.0).clicked() {
                             let files = pick_files(true);
@@ -471,18 +486,18 @@ impl SoundApp {
         actions: &mut Vec<RowAction>,
     ) {
         Frame::new()
-            .fill(Color32::from_rgb(0x15, 0x19, 0x1C))
+            .fill(header_fill())
             .corner_radius(12)
             .inner_margin(Margin { left: 6, right: 8, top: 4, bottom: 4 })
             .outer_margin(Margin { left: 4, right: 10, top: 6, bottom: 6 })
-            .stroke(Stroke::new(1.0, if coll.is_some() { neon(55) } else { BORDER }))
+            .stroke(Stroke::new(1.0, if coll.is_some() { neon(55) } else { border() }))
             .show(ui, |ui| {
                 ui.set_width(ui.available_width());
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 6.0;
                     let Some(c) = coll else {
                         ui.add_space(8.0);
-                        ui.label(RichText::new(t("ungrouped").to_uppercase()).font(bold(12.5)).color(MUTED));
+                        ui.label(RichText::new(t("ungrouped").to_uppercase()).font(bold(12.5)).color(muted()));
                         widgets::count_badge(ui, count, false);
                         return;
                     };
@@ -534,11 +549,11 @@ impl SoundApp {
         let (pos, dur, playing) = state.unwrap_or((0.0, 0.0, false));
         let k = theme::pulse(time, 5.0);
         let frame = Frame::new()
-            .fill(if playing { mix(ITEM, accent_deep(), 0.55) } else { ITEM })
+            .fill(if playing { mix(item(), accent_deep(), 0.55) } else { item() })
             .corner_radius(14)
             .inner_margin(Margin { left: 6, right: 10, top: 7, bottom: 7 })
             .outer_margin(Margin { left: 4, right: 10, top: 0, bottom: 0 })
-            .stroke(Stroke::new(1.0, if playing { neon((150.0 + 100.0 * k) as u8) } else { BORDER }))
+            .stroke(Stroke::new(1.0, if playing { neon((150.0 + 100.0 * k) as u8) } else { border() }))
             .shadow(if playing {
                 Shadow { offset: [0, 0], blur: 20, spread: 0, color: neon((45.0 + 55.0 * k) as u8) }
             } else {
@@ -591,7 +606,7 @@ impl SoundApp {
                 let name_w = (ui.available_width() - fixed).max(50.0);
                 let empty = slot.path.is_empty();
                 let name = if empty { t("no_file").to_string() } else { config::file_name(&slot.path) };
-                let color = if empty { MUTED } else if playing { accent_core() } else { TEXT };
+                let color = if empty { muted() } else if playing { accent_core() } else { txt() };
                 let r = widgets::label_truncated(ui, &name, name_w, bold(13.5), color);
                 if !empty {
                     r.on_hover_text(&slot.path);
@@ -603,7 +618,7 @@ impl SoundApp {
                     "-:-- / -:--".to_string()
                 };
                 let (tr, _) = ui.allocate_exact_size(vec2(time_w, 20.0), Sense::hover());
-                let time_color = if playing { accent_core() } else { MUTED };
+                let time_color = if playing { accent_core() } else { muted() };
                 ui.painter().text(tr.right_center(), Align2::RIGHT_CENTER, time_text, font(12.0), time_color);
 
                 let mut p = pos as f32;
@@ -613,7 +628,7 @@ impl SoundApp {
                 }
 
                 let (vr, _) = ui.allocate_exact_size(vec2(18.0, 18.0), Sense::hover());
-                icons::paint(ui.painter(), vr.shrink(1.0), Icon::Volume, MUTED);
+                icons::paint(ui.painter(), vr.shrink(1.0), Icon::Volume, muted());
                 let mut vol = slot.volume;
                 let vresp = widgets::slider(ui, &mut vol, 0.0..=1.5, vol_w, true, true).on_hover_text(t("tip_volume"));
                 if vresp.changed() {
@@ -861,9 +876,9 @@ impl SoundApp {
             theme::glow(ui.painter(), egui::Rect::from_center_size(dot.center(), vec2(5.0, 5.0)), 3.0, neon((60.0 + 60.0 * k) as u8), 8.0);
             ui.painter().circle_filled(dot.center(), 2.5, accent());
             let w = (ui.available_width() - 320.0).max(80.0);
-            widgets::label_truncated(ui, &self.core.status(), w, font(12.5), mix(MUTED, TEXT, 0.5));
+            widgets::label_truncated(ui, &self.core.status(), w, font(12.5), mix(muted(), txt(), 0.5));
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.label(RichText::new(format!("v{} · Rust", env!("CARGO_PKG_VERSION"))).font(font(11.5)).color(DIM));
+                ui.label(RichText::new(format!("v{} · Rust", env!("CARGO_PKG_VERSION"))).font(font(11.5)).color(dim()));
                 ui.add_space(6.0);
                 let dir = config::data_dir();
                 let tip = tf("tip_data_folder", &[("path", &dir.display())]);
@@ -894,7 +909,7 @@ impl SoundApp {
             .backdrop_color(Color32::from_black_alpha(170))
             .frame(
                 Frame::new()
-                    .fill(PANEL)
+                    .fill(panel())
                     .stroke(Stroke::new(1.0, neon(150)))
                     .corner_radius(18)
                     .inner_margin(Margin::same(22))
@@ -1026,7 +1041,7 @@ impl eframe::App for SoundApp {
     }
 
     fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
-        BG.to_normalized_gamma_f32()
+        bg().to_normalized_gamma_f32()
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
@@ -1043,7 +1058,7 @@ impl eframe::App for SoundApp {
 fn paint_background(ui: &Ui, time: f64) {
     let rect = ui.max_rect();
     let p = ui.painter();
-    p.rect_filled(rect, 0.0, BG);
+    p.rect_filled(rect, 0.0, bg());
     let grid = Stroke::new(1.0, Color32::from_white_alpha(4));
     let step = 34.0;
     let mut x = rect.left() + step;
@@ -1057,8 +1072,10 @@ fn paint_background(ui: &Ui, time: f64) {
         y += step;
     }
     let k = theme::pulse(time, 0.7);
-    theme::ambient(p, pos2(rect.left() + 170.0, rect.top() + 20.0), vec2(460.0, 110.0), neon((16.0 + 12.0 * k) as u8));
-    theme::ambient(p, pos2(rect.right() - 220.0, rect.bottom() - 10.0), vec2(560.0, 120.0), neon(12));
+    // no tema com degrade: magenta no alto, amarelo quente embaixo (ceu do por do sol)
+    let (top, low) = (theme::spectrum_at(0.0), theme::spectrum_at(1.0));
+    theme::ambient(p, pos2(rect.left() + 170.0, rect.top() + 20.0), vec2(460.0, 110.0), alpha_of(top, (16.0 + 12.0 * k) as u8));
+    theme::ambient(p, pos2(rect.right() - 220.0, rect.bottom() - 10.0), vec2(560.0, 120.0), alpha_of(low, 14));
     // linha de luz no topo da janela
     let top = egui::Rect::from_min_max(rect.left_top(), pos2(rect.right(), rect.top() + 2.0));
     p.rect_filled(top, 0.0, neon(90));

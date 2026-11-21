@@ -55,12 +55,12 @@ impl Waveform {
         let width = ui.available_width();
         let (rect, resp) = ui.allocate_exact_size(vec2(width, height), Sense::click_and_drag());
         let p = ui.painter().with_clip_rect(rect.expand(8.0));
-        p.rect(rect, CornerRadius::same(14), Color32::from_rgb(0x0D, 0x10, 0x12), Stroke::new(1.0, BORDER), StrokeKind::Inside);
+        p.rect(rect, CornerRadius::same(14), well(), Stroke::new(1.0, border()), StrokeKind::Inside);
         // grade sutil de "osciloscopio"
         let mid = rect.center().y;
         p.hline(rect.x_range().shrink(PAD), mid, Stroke::new(1.0, Color32::from_white_alpha(8)));
         if self.peaks.is_empty() || self.dur <= 0.0 {
-            p.text(rect.center(), Align2::CENTER_CENTER, t("no_clip"), font(13.0), MUTED);
+            p.text(rect.center(), Align2::CENTER_CENTER, t("no_clip"), font(13.0), muted());
             return None;
         }
 
@@ -121,10 +121,11 @@ impl Waveform {
             let hh = (a / top * half).max(1.5);
             let inside = x >= xs && x <= xe;
             if inside {
-                p.line_segment([pos2(x, mid - hh), pos2(x, mid + hh)], Stroke::new(5.0, neon((28.0 + 22.0 * k) as u8)));
-                p.line_segment([pos2(x, mid - hh), pos2(x, mid + hh)], Stroke::new(2.6, accent()));
+                let c = theme::spectrum_at((x - rect.left()) / rect.width());
+                p.line_segment([pos2(x, mid - hh), pos2(x, mid + hh)], Stroke::new(5.0, alpha_of(c, (28.0 + 22.0 * k) as u8)));
+                p.line_segment([pos2(x, mid - hh), pos2(x, mid + hh)], Stroke::new(2.6, c));
             } else {
-                p.line_segment([pos2(x, mid - hh), pos2(x, mid + hh)], Stroke::new(2.6, DIM));
+                p.line_segment([pos2(x, mid - hh), pos2(x, mid + hh)], Stroke::new(2.6, dim()));
             }
         }
 
@@ -140,7 +141,7 @@ impl Waveform {
             p.text(pos2(x + dx, rect.top() + 6.0), anchor, theme::mmss_tenths(when), bold(10.5), accent_core());
         }
         let label = tf("selection", &[("sel", &format!("{:.1}", self.end - self.start)), ("total", &format!("{:.1}", self.dur))]);
-        p.text(pos2(rect.right() - PAD, rect.bottom() - 5.0), Align2::RIGHT_BOTTOM, label, font(11.0), MUTED);
+        p.text(pos2(rect.right() - PAD, rect.bottom() - 5.0), Align2::RIGHT_BOTTOM, label, font(11.0), muted());
 
         // cursor de reproducao
         if let Some(pos) = pos {

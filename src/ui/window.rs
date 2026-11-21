@@ -33,7 +33,7 @@ pub fn recolor() {
 
 #[cfg(windows)]
 fn apply(hwnd: windows_sys::Win32::Foundation::HWND) {
-    use super::theme::{BG, accent, accent_core};
+    use super::theme::{accent, accent_core, bg};
     use eframe::egui::Color32;
     use windows_sys::Win32::Graphics::Dwm::DwmSetWindowAttribute;
 
@@ -42,7 +42,7 @@ fn apply(hwnd: windows_sys::Win32::Foundation::HWND) {
     const CAPTION_COLOR: u32 = 35; // DWMWA_CAPTION_COLOR (Windows 11)
     const TEXT_COLOR: u32 = 36; // DWMWA_TEXT_COLOR (Windows 11)
     let colorref = |c: Color32| c.r() as u32 | (c.g() as u32) << 8 | (c.b() as u32) << 16;
-    for (attr, value) in [(DARK_MODE, 1), (CAPTION_COLOR, colorref(BG)), (BORDER_COLOR, colorref(accent())), (TEXT_COLOR, colorref(accent_core()))] {
+    for (attr, value) in [(DARK_MODE, 1), (CAPTION_COLOR, colorref(bg())), (BORDER_COLOR, colorref(accent())), (TEXT_COLOR, colorref(accent_core()))] {
         // SAFETY: hwnd e a janela do app; o valor e um u32 vivo durante a chamada. No Windows 10
         // os atributos 34-36 nao existem e a chamada so falha, sem efeito.
         unsafe {
