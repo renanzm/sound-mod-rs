@@ -70,7 +70,7 @@ sound-mod-rs/
 - **Folders:** `Dirs { app, data }`. `app` = the `.exe` folder (when running from `target\debug|release`, the project root). `data` = `%APPDATA%\SoundMod`, holding `config.json`, `sounds\` and `clips\last_clip.wav`: replacing the program folder in an update erases nothing. It is the **same folder as the Python version**, which reads the same file.
 - **One-time import:** if `data` has no `config.json` yet and there is one next to the `.exe` (older versions), it copies `sounds\` and `clips\` without overwriting anything that already exists and, last, the `config.json` (if something fails midway, the next start tries again). Nothing is deleted from the old folder. `load()` returns the source folder and the interface says so in the status bar.
 - **Corrupted config:** copied to `config-corrompido-YYYYMMDD-HHMMSS.json` before falling back to defaults (otherwise the next save would overwrite it). A Notepad BOM is accepted.
-- Same format as the Python version: `language`, `mic_device`, `output_device`, `monitor_device`, `loopback_device`, `mix_mic`, `monitor`, `master_volume`, `clip_seconds`, `voice_effect`, `accent`, `compact_list`, `hear_self`, `clip_trim`, `save_clip_key`, `play_clip_key`, `stop_key`, `collections[{name, collapsed}]`, `slots[{key, path, volume, collection}]`. **Unknown fields are preserved** (`#[serde(flatten)] extra`) so one version doesn't erase what the other wrote. `collections` also accepts bare names (`["Memes"]`).
+- Same format as the Python version: `language`, `mic_device`, `output_device`, `monitor_device`, `loopback_device`, `mix_mic`, `monitor`, `master_volume`, `clip_seconds`, `voice_effect`, `accent`, `compact_list`, `hear_self`, `clip_trim`, `clip_pitch`, `save_clip_key`, `play_clip_key`, `stop_key`, `collections[{name, collapsed}]`, `slots[{key, path, volume, collection}]`. **Unknown fields are preserved** (`#[serde(flatten)] extra`) so one version doesn't erase what the other wrote. `collections` also accepts bare names (`["Memes"]`).
 - Devices by **name**: `None` = automatic (resolved on first start, then saved), `Some("")` = none. The old text `"(nenhum)"` becomes `""`.
 - `resolve()`: relative paths (`sounds/x.wav`) are relative to the data folder.
 - **Fixed sounds folder:** `import_sound(dir, src)` copies the file into `sounds\` (the original stays untouched); an identical file already there is reused and a different one with the same name becomes `name (2).ext`. `Core::adopt_slot` uses it when a sound is added or its file is changed (on a thread, before loading) and stores the relative path `sounds/<name>`; `Core::adopt_all` does the same once at startup for sounds still outside the folder. The **Open folder** button (sounds card) opens `sounds\`.
@@ -113,6 +113,7 @@ Pure functions over the `Config`, ported from `library.py`:
 | `pause(id)` | pause/resume (stopped at the start: nothing) |
 | `stop` / `stop_all` | stops and rewinds to the start of the range |
 | `seek`, `set_gain`, `set_range` | position, live volume, trim |
+| `set_pitch(id, semitones)` | read speed `2^(st/12)` with linear interpolation (pitch and length change together); used by the clip (`clip_pitch` in the config, −12..12) and kept when the channel is reloaded |
 | `state(id)` | `(pos_s, duration_s, playing)` |
 | `channel_audio(id)` | data + range (waveform, save as sound) |
 
@@ -194,7 +195,7 @@ What the interface and the hotkeys do: play/stop slots, save/play the clip, save
 ```
 
 - `codec`: resampling (length and frequency), WAV round trip.
-- `engine`: play/stop/solo, mixing and end of range, pause/seek/range, mic → output and monitor, latency cap, linear resampler rate.
+- `engine`: clip pitch (+12 = 880 Hz and half the length; −12 = 220 Hz), play/stop/solo, mixing and end of range, pause/seek/range, mic → output and monitor, latency cap, linear resampler rate.
 - `voice`: pitch-shifter frequency, every effect finite and not silencing, silence stays silent, pitch detection, autotune snapping to the semitone.
 - `hotkeys`: normalization, name round trip, invalid keys.
 - `i18n`: same keys and fields in both languages.

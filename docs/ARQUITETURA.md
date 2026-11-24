@@ -70,7 +70,7 @@ sound-mod-rs/
 - **Pastas:** `Dirs { app, data }`. `app` = pasta do `.exe` (rodando de `target\debug|release`, a raiz do projeto). `data` = `%APPDATA%\SoundMod`, onde ficam `config.json`, `sounds\` e `clips\last_clip.wav`: substituir a pasta do programa numa atualização não apaga nada. É a **mesma pasta da versão Python**, que lê o mesmo arquivo.
 - **Importação única:** se `data` ainda não tem `config.json` e existe um ao lado do `.exe` (versões antigas), copia `sounds\` e `clips\` sem sobrescrever o que já existe e, por último, o `config.json` (se algo falhar no meio, tenta de novo na próxima vez). Nada é apagado da pasta antiga. `load()` devolve a pasta de origem e a interface avisa na barra de status.
 - **Config corrompido:** é copiado para `config-corrompido-AAAAMMDD-HHMMSS.json` antes de usar os padrões (senão o próximo save gravaria por cima). BOM do Bloco de Notas é aceito.
-- Mesmo formato da versão Python: `language`, `mic_device`, `output_device`, `monitor_device`, `loopback_device`, `mix_mic`, `monitor`, `master_volume`, `clip_seconds`, `voice_effect`, `accent`, `compact_list`, `hear_self`, `clip_trim`, `save_clip_key`, `play_clip_key`, `stop_key`, `collections[{name, collapsed}]`, `slots[{key, path, volume, collection}]`. **Campos desconhecidos são preservados** (`#[serde(flatten)] extra`), para uma versão não apagar o que a outra gravou. `collections` aceita também nomes soltos (`["Memes"]`).
+- Mesmo formato da versão Python: `language`, `mic_device`, `output_device`, `monitor_device`, `loopback_device`, `mix_mic`, `monitor`, `master_volume`, `clip_seconds`, `voice_effect`, `accent`, `compact_list`, `hear_self`, `clip_trim`, `clip_pitch`, `save_clip_key`, `play_clip_key`, `stop_key`, `collections[{name, collapsed}]`, `slots[{key, path, volume, collection}]`. **Campos desconhecidos são preservados** (`#[serde(flatten)] extra`), para uma versão não apagar o que a outra gravou. `collections` aceita também nomes soltos (`["Memes"]`).
 - Dispositivos por **nome**: `None` = automático (resolvido na primeira abertura e então salvo), `Some("")` = nenhum. O texto antigo `"(nenhum)"` vira `""`.
 - `resolve()`: caminhos relativos (`sounds/x.wav`) são relativos à pasta de dados.
 - **Pasta fixa dos sons:** `import_sound(pasta, origem)` copia o arquivo para `sounds\` (o original fica intacto); um arquivo idêntico já lá é reaproveitado e um diferente com o mesmo nome vira `nome (2).ext`. `Core::adopt_slot` usa isso ao adicionar ou trocar o arquivo de um som (numa thread, antes de carregar) e grava o caminho relativo `sounds/<nome>`; `Core::adopt_all` faz o mesmo uma vez na abertura para os sons que ainda estão fora da pasta. O botão **Abrir pasta** (cartão de sons) abre `sounds\`.
@@ -112,6 +112,7 @@ Funções puras sobre a `Config`, portadas do `library.py`:
 | `pause(id)` | pausa/continua (parado no início: nada) |
 | `stop` / `stop_all` | para e volta ao início do trecho |
 | `seek`, `set_gain`, `set_range` | posição, volume ao vivo, corte |
+| `set_pitch(id, semitons)` | velocidade de leitura `2^(st/12)` com interpolação linear (tom e duração mudam juntos); usado no clipe (`clip_pitch` na config, −12..12) e mantido ao recarregar o canal |
 | `state(id)` | `(pos_s, duração_s, tocando)` |
 | `channel_audio(id)` | dados + trecho (forma de onda, salvar como som) |
 
@@ -193,7 +194,7 @@ O que a interface e as hotkeys fazem: tocar/parar slots, salvar/tocar o clipe, s
 ```
 
 - `codec`: reamostragem (duração e frequência), WAV ida e volta.
-- `engine`: tocar/parar/solo, mixagem e fim do trecho, pausa/seek/trecho, mic → saída e monitor, limite de latência, taxa do reamostrador linear.
+- `engine`: tom do clipe (+12 = 880 Hz e metade da duração; −12 = 220 Hz), tocar/parar/solo, mixagem e fim do trecho, pausa/seek/trecho, mic → saída e monitor, limite de latência, taxa do reamostrador linear.
 - `voice`: frequência do pitch shifter, todos os efeitos finitos e sem silenciar, silêncio continua silêncio, detecção de pitch, autotune puxando para o semitom.
 - `hotkeys`: normalização, nomes ida e volta, teclas inválidas.
 - `i18n`: mesmas chaves e campos nos dois idiomas.
