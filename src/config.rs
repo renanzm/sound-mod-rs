@@ -80,6 +80,8 @@ pub struct Config {
     pub hear_self: bool,
     /// [inicio, fim] em segundos do trecho do clipe que toca, ou None = inteiro.
     pub clip_trim: Option<[f64; 2]>,
+    /// Tom do clipe ao tocar, em semitons (-12..12). Nao altera o arquivo.
+    pub clip_pitch: i32,
     pub save_clip_key: String,
     pub play_clip_key: String,
     pub stop_key: String,
@@ -109,6 +111,7 @@ impl Default for Config {
             compact_list: false,
             hear_self: false,
             clip_trim: None,
+            clip_pitch: 0,
             save_clip_key: "f5".into(),
             play_clip_key: "f6".into(),
             stop_key: "f12".into(),
@@ -347,6 +350,7 @@ pub fn load_in(d: &Dirs) -> (Config, Option<PathBuf>) {
         cfg.loopback_device = None;
     }
     cfg.clip_seconds = cfg.clip_seconds.clamp(1, 60);
+    cfg.clip_pitch = cfg.clip_pitch.clamp(-12, 12);
     cfg.master_volume = cfg.master_volume.clamp(0.0, 1.0);
     library::normalize(&mut cfg);
     (cfg, migrated)

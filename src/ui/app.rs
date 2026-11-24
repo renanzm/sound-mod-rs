@@ -788,7 +788,30 @@ impl SoundApp {
             ui.horizontal(|ui| {
                 widgets::title(ui, Icon::Record, t("clip_title"));
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if widgets::button(ui, t("save_as_sound"), Some(Icon::Save), Style::Primary, 0.0).clicked() {
+                    let save_clicked = widgets::button(ui, t("save_as_sound"), Some(Icon::Save), Style::Primary, 0.0).clicked();
+                    // tom ao tocar (semitons); layout invertido: da direita para a esquerda
+                    ui.add_space(14.0);
+                    let current = self.core.cfg.lock().clip_pitch;
+                    let reset = widgets::icon_button(ui, Icon::Backspace, 26.0, Tint::Flat, current != 0);
+                    if reset.on_hover_text(t("tip_pitch_reset")).clicked() {
+                        self.core.set_clip_pitch(0, true);
+                    }
+                    let shown = self.core.cfg.lock().clip_pitch;
+                    let label = if shown > 0 { format!("+{shown}") } else { shown.to_string() };
+                    let color = if shown == 0 { muted() } else { accent_core() };
+                    let (lr, _) = ui.allocate_exact_size(vec2(30.0, 20.0), Sense::hover());
+                    ui.painter().text(lr.center(), Align2::CENTER_CENTER, label, bold(13.0), color);
+                    let mut v = shown as f32;
+                    let r = widgets::slider(ui, &mut v, -12.0..=12.0, 150.0, false, true).on_hover_text(t("tip_clip_pitch"));
+                    let st = v.round() as i32;
+                    if st != shown {
+                        self.core.set_clip_pitch(st, false);
+                    }
+                    if r.drag_stopped() || r.clicked() {
+                        self.core.save_cfg();
+                    }
+                    widgets::caption(ui, t("clip_pitch")).on_hover_text(t("tip_clip_pitch"));
+                    if save_clicked {
                         if self.core.engine.has(CLIP) {
                             self.dialog = Some(NameDialog::new(DialogKind::SaveSound, String::new()));
                         } else {

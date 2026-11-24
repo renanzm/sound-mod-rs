@@ -192,6 +192,7 @@ O Sound Mod fica gravando, sem salvar, os últimos segundos do som do computador
 2. Aperte **F5** (ou o botão **●**) para salvar os últimos segundos. A forma de onda aparece.
 3. **Arraste as alças acesas** na forma de onda para escolher o trecho que vai tocar. Clique na onda para mudar a posição.
 4. Aperte **F6** (ou **▶**) para tocar o trecho no microfone. **⏸** e **■** pausam e param.
+   - **Tom**: o controle ao lado de **Salvar como som** deixa o clipe mais agudo ou mais grave ao tocar (de −12 a +12 semitons; o **⌫** volta ao original). Mais agudo também toca mais rápido, e mais grave, mais devagar: ótimo para devolver a voz de um amigo como esquilo ou monstro. O arquivo gravado não muda, e o tom fica salvo.
 5. **Salvar como som** pede um nome e adiciona o trecho escolhido à sua lista de sons.
 
 > [!NOTE]

@@ -40,6 +40,10 @@ const MAX_LAG: usize = SR as usize / 4;
 struct Channel {
     data: Arc<Vec<f32>>,
     pos: usize,
+    /// Parte fracionaria da posicao (quando `rate` != 1).
+    frac: f64,
+    /// Velocidade de leitura: 2 = uma oitava acima e duas vezes mais rapido.
+    rate: f64,
     start: usize,
     end: usize,
     gain: f32,
@@ -54,6 +58,43 @@ impl Channel {
     fn rewind(&mut self) {
         self.playing = false;
         self.pos = self.start;
+        self.frac = 0.0;
+    }
+
+    fn new(data: Arc<Vec<f32>>, gain: f32) -> Self {
+        let end = data.len() / 2;
+        Self { data, pos: 0, frac: 0.0, rate: 1.0, start: 0, end, gain, playing: false }
+    }
+
+    /// Soma ate `frames` quadros estereo em `mix`, avancando a posicao. Retorna se chegou ao fim.
+    fn mix_into(&mut self, mix: &mut [f32]) -> bool {
+        let frames = mix.len() / 2;
+        if self.rate == 1.0 && self.frac == 0.0 {
+            let n = frames.min(self.end.saturating_sub(self.pos));
+            let src = &self.data[self.pos * 2..(self.pos + n) * 2];
+            for (m, v) in mix.iter_mut().zip(src) {
+                *m += v * self.gain;
+            }
+            self.pos += n;
+            return self.pos >= self.end;
+        }
+        // velocidade variavel: interpolacao linear entre o quadro atual e o proximo
+        let last = self.end.saturating_sub(1);
+        for out in mix.chunks_exact_mut(2) {
+            if self.pos >= last {
+                self.pos = self.end;
+                return true;
+            }
+            let (i, t) = (self.pos * 2, self.frac as f32);
+            let d = &self.data;
+            out[0] += (d[i] + (d[i + 2] - d[i]) * t) * self.gain;
+            out[1] += (d[i + 1] + (d[i + 3] - d[i + 1]) * t) * self.gain;
+            self.frac += self.rate;
+            let whole = self.frac.floor();
+            self.pos += whole as usize;
+            self.frac -= whole;
+        }
+        self.pos >= last
     }
 }
 
@@ -154,7 +195,12 @@ impl Engine {
     pub fn set_sound(&self, cid: ChannelId, path: &Path, gain: f32) -> Result<f64, String> {
         let data = self.load(path)?;
         let frames = data.len() / 2;
-        self.channels.lock().insert(cid, Channel { data, pos: 0, start: 0, end: frames, gain, playing: false });
+        let mut chans = self.channels.lock();
+        // o som recarregado mantem a velocidade escolhida (ex.: o tom do clipe)
+        let rate = chans.get(&cid).map_or(1.0, |c| c.rate);
+        let mut ch = Channel::new(data, gain);
+        ch.rate = rate;
+        chans.insert(cid, ch);
         Ok(frames as f64 / SR as f64)
     }
 
@@ -240,6 +286,13 @@ impl Engine {
         }
     }
 
+    /// Tom ao tocar, em semitons (-12..12): muda a velocidade de leitura (e a duracao junto).
+    pub fn set_pitch(&self, cid: ChannelId, semitones: f32) {
+        if let Some(ch) = self.channels.lock().get_mut(&cid) {
+            ch.rate = 2f64.powf(semitones.clamp(-24.0, 24.0) as f64 / 12.0);
+        }
+    }
+
     pub fn set_gain(&self, cid: ChannelId, gain: f32) {
         if let Some(ch) = self.channels.lock().get_mut(&cid) {
             ch.gain = gain;
@@ -283,13 +336,7 @@ impl Engine {
         {
             let mut chans = self.channels.lock();
             for c in chans.values_mut().filter(|c| c.playing) {
-                let n = frames.min(c.end.saturating_sub(c.pos));
-                let src = &c.data[c.pos * 2..(c.pos + n) * 2];
-                for (m, v) in s.mix.iter_mut().zip(src) {
-                    *m += v * c.gain;
-                }
-                c.pos += n;
-                if c.pos >= c.end {
+                if c.mix_into(&mut s.mix[..frames * 2]) {
                     c.rewind();
                 }
             }
@@ -633,7 +680,7 @@ mod tests {
     fn engine_with(cid: ChannelId, frames: usize) -> Arc<Engine> {
         let e = Arc::new(Engine::default());
         let data = Arc::new((0..frames * 2).map(|i| if i % 2 == 0 { 0.5 } else { -0.5 }).collect::<Vec<f32>>());
-        e.channels.lock().insert(cid, Channel { data, pos: 0, start: 0, end: frames, gain: 1.0, playing: false });
+        e.channels.lock().insert(cid, Channel::new(data, 1.0));
         e
     }
 
@@ -641,7 +688,7 @@ mod tests {
     fn toggle_play_stop_and_solo() {
         let e = engine_with(1, 4800);
         let d = Arc::new(vec![0.1f32; 9600]);
-        e.channels.lock().insert(2, Channel { data: d, pos: 0, start: 0, end: 4800, gain: 1.0, playing: false });
+        e.channels.lock().insert(2, Channel::new(d, 1.0));
         assert_eq!(e.toggle(1), Some(true));
         assert_eq!(e.toggle(2), Some(true));
         assert!(!e.state(1).unwrap().2, "playing another sound stops the first");
@@ -693,6 +740,49 @@ mod tests {
     }
 
     #[test]
+    fn pitch_changes_frequency_and_speed() {
+        // 1 s de 440 Hz; +12 semitons = 880 Hz e metade da duracao
+        let n = SR as usize;
+        let tone: Vec<f32> = (0..n)
+            .flat_map(|i| {
+                let v = (2.0 * std::f32::consts::PI * 440.0 * i as f32 / SR as f32).sin() * 0.5;
+                [v, v]
+            })
+            .collect();
+        let e = Arc::new(Engine::default());
+        e.mix_mic.store(false, Ordering::Relaxed);
+        e.channels.lock().insert(1, Channel::new(Arc::new(tone), 1.0));
+        e.set_pitch(1, 12.0);
+        e.play(1);
+        let mut out = vec![0f32; 480 * 2];
+        let mut left = Vec::new();
+        let mut s = Scratch::default();
+        for _ in 0..200 {
+            e.render(&mut out, 2, &mut s);
+            left.extend(out.iter().step_by(2).copied());
+            if !e.state(1).unwrap().2 {
+                break;
+            }
+        }
+        let played = left.iter().rposition(|v| v.abs() > 1e-4).unwrap() + 1;
+        assert!((played as i64 - n as i64 / 2).abs() < 960, "duracao {played}");
+        let seg = &left[4800..4800 + 9600];
+        let rising = seg.windows(2).filter(|w| w[0] < 0.0 && w[1] >= 0.0).count();
+        let freq = rising as f32 / 0.2;
+        assert!((freq - 880.0).abs() < 15.0, "{freq} Hz");
+        // -12: oitava abaixo
+        e.set_pitch(1, -12.0);
+        e.play(1);
+        let mut low = Vec::new();
+        for _ in 0..20 {
+            e.render(&mut out, 2, &mut s);
+            low.extend(out.iter().step_by(2).copied());
+        }
+        let rising = low[..9600].windows(2).filter(|w| w[0] < 0.0 && w[1] >= 0.0).count();
+        assert!((rising as f32 / 0.2 - 220.0).abs() < 15.0, "{} Hz", rising as f32 / 0.2);
+    }
+
+    #[test]
     fn mic_lag_is_capped() {
         let e = Engine::default();
         e.push_mic(&vec![0.0; SR as usize]);
@@ -719,7 +809,7 @@ mod tests {
                 [v, v]
             })
             .collect();
-        e.channels.lock().insert(1, Channel { data: Arc::new(tone), pos: 0, start: 0, end: n, gain: 1.0, playing: false });
+        e.channels.lock().insert(1, Channel::new(Arc::new(tone), 1.0));
         let mut streams = e.open(None, Some(&cable), None, &Mutex::new(String::new())).expect("abrir saida").streams;
         e.activate(false);
         let rec = Arc::new(crate::recorder::Recorder::new(5));

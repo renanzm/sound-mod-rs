@@ -192,6 +192,7 @@ Sound Mod keeps recording, without saving, the last few seconds of the computer'
 2. Press **F5** (or the **●** button) to save the last seconds. The waveform appears.
 3. **Drag the glowing handles** on the waveform to choose the part that plays. Click the waveform to change the position.
 4. Press **F6** (or **▶**) to play the part on the microphone. **⏸** and **■** pause and stop.
+   - **Pitch**: the control next to **Save as sound** makes the clip higher or lower when it plays (−12 to +12 semitones; **⌫** resets it). Higher also plays faster, and lower, slower: great for playing a friend's voice back as a chipmunk or a monster. The recorded file doesn't change, and the pitch is saved.
 5. **Save as sound** asks for a name and adds the selected part to your list of sounds.
 
 > [!NOTE]

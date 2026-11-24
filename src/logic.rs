@@ -459,13 +459,14 @@ impl Core {
             self.say(tf("clip_open_error", &[("e", &e)]));
             return false;
         }
-        let trim = {
+        let (trim, pitch) = {
             let mut cfg = self.cfg.lock();
             if reset_trim {
                 cfg.clip_trim = None;
             }
-            cfg.clip_trim
+            (cfg.clip_trim, cfg.clip_pitch)
         };
+        self.engine.set_pitch(CLIP, pitch as f32);
         if let Some([start, end]) = trim {
             self.engine.set_range(CLIP, start, end);
         }
@@ -481,6 +482,16 @@ impl Core {
         self.cfg.lock().clip_trim = Some([(start * 1000.0).round() / 1000.0, (end * 1000.0).round() / 1000.0]);
         self.engine.set_range(CLIP, start, end);
         self.save_cfg();
+    }
+
+    /// Tom do clipe ao tocar (semitons); vale na hora, inclusive com o clipe tocando.
+    pub fn set_clip_pitch(&self, semitones: i32, save: bool) {
+        let st = semitones.clamp(-12, 12);
+        self.cfg.lock().clip_pitch = st;
+        self.engine.set_pitch(CLIP, st as f32);
+        if save {
+            self.save_cfg();
+        }
     }
 
     pub fn toggle_clip(&self) {
