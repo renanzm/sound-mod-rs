@@ -69,7 +69,7 @@ O projeto usa o toolchain GNU do Rust (fixado no `rust-toolchain.toml`) com o li
 3. Escolha os arquivos dos slots. Cada botão de tecla é dividido: **▶ F1** toca e, apertado de novo, para; **✎** troca a tecla; **⌫** remove a tecla. Só um som toca por vez.
 4. Organize: **▲▼** à esquerda de cada som muda a posição; **Nova coleção** cria um grupo; o botão de camadas de cada som leva ele para uma coleção; no cabeçalho de uma coleção, a seta (ou o nome) recolhe, **+ Som** adiciona arquivos nela, ▲▼ muda a coleção de lugar, ✎ renomeia e a lixeira apaga (os sons voltam para *Sem coleção*).
 5. **F5** salva os últimos N segundos do áudio do PC e mostra a forma de onda; arraste as alças acesas para escolher o trecho. **F6** toca esse trecho. **F12** para tudo. **Salvar como som** pede um nome e adiciona o trecho escolhido aos seus sons.
-6. **Efeito de voz**: escolha um efeito no painel lateral. Ele muda seu microfone ao vivo; **Normal** desliga. Marque **Ouvir minha voz** para se escutar.
+6. **Efeito de voz**: escolha um efeito no painel lateral (embaixo dos sons em janelas estreitas). Ele muda seu microfone ao vivo; **Normal** desliga. Marque **Ouvir minha voz** para se escutar.
 
 Trocas de dispositivo valem ao clicar em **Aplicar / Reiniciar**; interruptores e volumes valem na hora.
 

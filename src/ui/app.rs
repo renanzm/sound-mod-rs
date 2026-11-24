@@ -28,6 +28,10 @@ use crate::logic::{Core, FX_KEYS, KeyTarget, default_sound_name};
 use crate::voice;
 
 const SIDEBAR: f32 = 356.0;
+/// Abaixo desta largura de janela o layout vira uma coluna so (painel lateral embaixo).
+pub const WIDE_MIN: f32 = 1240.0;
+/// Menor largura de janela aceita (layout estreito).
+pub const MIN_WIDTH: f32 = 900.0;
 
 enum RowAction {
     Toggle(u64),
@@ -351,7 +355,7 @@ impl SoundApp {
     }
 
     // ---------- cabecalho ----------
-    fn header(&mut self, ui: &mut Ui, time: f64) {
+    fn header(&mut self, ui: &mut Ui, time: f64, narrow: bool) {
         let mut actions = Vec::new();
         ui.horizontal(|ui| {
             let (rect, _) = ui.allocate_exact_size(vec2(48.0, 48.0), Sense::hover());
@@ -399,41 +403,61 @@ impl SoundApp {
 
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 ui.spacing_mut().item_spacing.x = 10.0;
-                // parar tudo (canto direito)
-                let key = self.core.key_of(KeyTarget::StopAll);
-                let capturing = self.capturing(KeyTarget::StopAll);
-                let label = t("stop_all").to_uppercase();
-                let label_w = ui.painter().layout_no_wrap(label.clone(), bold(12.0), Color32::PLACEHOLDER).size().x;
-                let group_w = 14.0 + label_w + 10.0 + widgets::key_button_width(ui, &key, capturing) + 8.0;
-                ui.allocate_ui_with_layout(vec2(group_w, 44.0), Layout::left_to_right(Align::Center), |ui| {
-                    Frame::new()
-                        .fill(DANGER_DEEP)
-                        .stroke(Stroke::new(1.0, alpha_of(DANGER, 90)))
-                        .corner_radius(22)
-                        .inner_margin(Margin { left: 14, right: 6, top: 5, bottom: 5 })
-                        .show(ui, |ui| {
-                            ui.spacing_mut().item_spacing.x = 10.0;
-                            ui.label(RichText::new(label).font(bold(12.0)).color(mix(DANGER, txt(), 0.35)));
-                            let kr = widgets::key_button(ui, Icon::Stop, &key, false, capturing, self.capture.is_some(), true, time);
-                            if kr.action.clicked() {
-                                self.core.engine.stop_all();
-                            }
-                            if kr.edit.clicked() {
-                                actions.push(RowAction::Edit(KeyTarget::StopAll));
-                            }
-                            if kr.clear.clicked() {
-                                actions.push(RowAction::Clear(KeyTarget::StopAll));
-                            }
-                        });
-                });
-                self.language_menu(ui);
-                self.accent_menu(ui, time);
-                widgets::level_meter(ui, t("level_out"), self.levels[1]);
-                widgets::level_meter(ui, t("level_mic"), self.levels[0]);
-                widgets::status_pill(ui, self.core.engine.running(), time);
+                self.stop_all_group(ui, time, &mut actions);
+                if !narrow {
+                    self.header_controls(ui, time);
+                }
             });
         });
+        if narrow {
+            // janela estreita: os controles descem para uma segunda linha, alinhados a direita
+            ui.add_space(6.0);
+            ui.allocate_ui_with_layout(vec2(ui.available_width(), 34.0), Layout::right_to_left(Align::Center), |ui| {
+                ui.spacing_mut().item_spacing.x = 10.0;
+                self.header_controls(ui, time);
+            });
+        }
         self.apply(actions);
+    }
+
+    /// Botao "parar tudo" com a tecla, no canto direito do cabecalho.
+    fn stop_all_group(&mut self, ui: &mut Ui, time: f64, actions: &mut Vec<RowAction>) {
+        // parar tudo (canto direito)
+        let key = self.core.key_of(KeyTarget::StopAll);
+        let capturing = self.capturing(KeyTarget::StopAll);
+        let label = t("stop_all").to_uppercase();
+        let label_w = ui.painter().layout_no_wrap(label.clone(), bold(12.0), Color32::PLACEHOLDER).size().x;
+        let group_w = 14.0 + label_w + 10.0 + widgets::key_button_width(ui, &key, capturing) + 8.0;
+        ui.allocate_ui_with_layout(vec2(group_w, 44.0), Layout::left_to_right(Align::Center), |ui| {
+            Frame::new()
+                .fill(DANGER_DEEP)
+                .stroke(Stroke::new(1.0, alpha_of(DANGER, 90)))
+                .corner_radius(22)
+                .inner_margin(Margin { left: 14, right: 6, top: 5, bottom: 5 })
+                .show(ui, |ui| {
+                    ui.spacing_mut().item_spacing.x = 10.0;
+                    ui.label(RichText::new(label).font(bold(12.0)).color(mix(DANGER, txt(), 0.35)));
+                    let kr = widgets::key_button(ui, Icon::Stop, &key, false, capturing, self.capture.is_some(), true, time);
+                    if kr.action.clicked() {
+                        self.core.engine.stop_all();
+                    }
+                    if kr.edit.clicked() {
+                        actions.push(RowAction::Edit(KeyTarget::StopAll));
+                    }
+                    if kr.clear.clicked() {
+                        actions.push(RowAction::Clear(KeyTarget::StopAll));
+                    }
+                });
+        });
+    }
+
+    /// Idioma, cor do neon, medidores e indicador ao vivo (layout da direita para a esquerda).
+    fn header_controls(&mut self, ui: &mut Ui, time: f64) {
+        self.language_menu(ui);
+        self.accent_menu(ui, time);
+        widgets::level_meter(ui, t("level_out"), self.levels[1]);
+        widgets::level_meter(ui, t("level_mic"), self.levels[0]);
+        widgets::status_pill(ui, self.core.engine.running(), time);
     }
 
     fn language_menu(&mut self, ui: &mut Ui) {
@@ -498,7 +522,7 @@ impl SoundApp {
     // ---------- sons ----------
     fn sounds_card(&mut self, ui: &mut Ui, time: f64) {
         let w = ui.available_width();
-        let h = ui.available_height().max(190.0);
+        let h = ui.available_height().max(120.0);
         let mut actions = Vec::new();
         ui.allocate_ui_with_layout(vec2(w, h), Layout::top_down(Align::Min), |ui| {
             widgets::card(ui, |ui| {
@@ -1119,12 +1143,15 @@ impl eframe::App for SoundApp {
         self.sync_wave();
 
         paint_background(ui, time);
+        // janela estreita (ex.: monitor em pe): cabecalho em duas linhas e painel lateral embaixo
+        let narrow = ui.max_rect().width() < WIDE_MIN;
+        let side_max_h = (ui.max_rect().height() * 0.36).max(200.0);
 
         Panel::top("header")
             .frame(Frame::NONE.inner_margin(Margin { left: 22, right: 22, top: 16, bottom: 12 }))
             .show_separator_line(false)
             .resizable(false)
-            .show(ui, |ui| self.header(ui, time));
+            .show(ui, |ui| self.header(ui, time, narrow));
         if !self.cable_found {
             Panel::top("cable")
                 .frame(Frame::NONE.inner_margin(Margin { left: 24, right: 24, top: 0, bottom: 10 }))
@@ -1139,20 +1166,36 @@ impl eframe::App for SoundApp {
             .show_separator_line(false)
             .resizable(false)
             .show(ui, |ui| self.status_bar(ui, time));
-        Panel::right("side")
-            .exact_size(SIDEBAR)
-            .resizable(false)
-            .show_separator_line(false)
-            .frame(Frame::NONE.inner_margin(Margin { left: 6, right: 20, top: 2, bottom: 6 }))
-            .show(ui, |ui| {
-                ScrollArea::vertical().id_salt("side").auto_shrink([false, false]).show(ui, |ui| {
-                    self.devices_card(ui);
-                    ui.add_space(14.0);
-                    self.voice_card(ui);
+        if narrow {
+            Panel::bottom("side")
+                .resizable(false)
+                .show_separator_line(false)
+                .frame(Frame::NONE.inner_margin(Margin { left: 20, right: 20, top: 14, bottom: 6 }))
+                .show(ui, |ui| {
+                    // em janelas baixas o painel rola em vez de espremer a lista de sons
+                    ScrollArea::vertical().id_salt("side").max_height(side_max_h).show(ui, |ui| {
+                        ui.columns(2, |cols| {
+                            self.devices_card(&mut cols[0]);
+                            self.voice_card(&mut cols[1]);
+                        });
+                    });
                 });
-            });
+        } else {
+            Panel::right("side")
+                .exact_size(SIDEBAR)
+                .resizable(false)
+                .show_separator_line(false)
+                .frame(Frame::NONE.inner_margin(Margin { left: 6, right: 20, top: 2, bottom: 6 }))
+                .show(ui, |ui| {
+                    ScrollArea::vertical().id_salt("side").auto_shrink([false, false]).show(ui, |ui| {
+                        self.devices_card(ui);
+                        ui.add_space(14.0);
+                        self.voice_card(ui);
+                    });
+                });
+        }
         CentralPanel::no_frame()
-            .frame(Frame::NONE.inner_margin(Margin { left: 20, right: 8, top: 2, bottom: 6 }))
+            .frame(Frame::NONE.inner_margin(Margin { left: 20, right: if narrow { 20 } else { 8 }, top: 2, bottom: 6 }))
             .show(ui, |ui| {
                 // o clipe fica embaixo com a altura que precisar; os sons ocupam o resto
                 Panel::bottom("clip_panel")

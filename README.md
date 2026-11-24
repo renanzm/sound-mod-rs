@@ -69,7 +69,7 @@ The project uses the GNU Rust toolchain (pinned in `rust-toolchain.toml`) linked
 3. Assign files to the slots. Each key button is split: **▶ F1** plays and, pressed again, stops; **✎** changes the key; **⌫** removes the key. Only one sound plays at a time.
 4. Organize: **▲▼** on the left of each sound changes its position; **New collection** creates a group; the layers button on each sound moves it to a collection; on a collection header, the arrow (or the name) collapses it, **+ Sound** adds files into it, ▲▼ moves the collection, ✎ renames and the trash deletes it (its sounds go back to *No collection*).
 5. **F5** saves the last N seconds of PC audio and shows the waveform; drag the glowing handles to choose the part. **F6** plays that part. **F12** stops everything. **Save as sound** asks for a name and adds the selected part to your sounds.
-6. **Voice effect**: pick an effect in the side panel. It changes your mic live; **Normal** turns it off. Check **Hear my voice** to monitor yourself.
+6. **Voice effect**: pick an effect in the side panel (below the sounds on narrow windows). It changes your mic live; **Normal** turns it off. Check **Hear my voice** to monitor yourself.
 
 Device changes take effect when you click **Apply / Restart**; switches and volumes apply immediately.
 
