@@ -42,7 +42,7 @@ Sons (F1, F2...) ┘      └─► seus fones (monitor)
 ## Instalação
 
 1. Instale o cabo virtual [VB-CABLE](https://vb-audio.com/Cable/) (gratuito) e **reinicie o PC**. O manual explica [o que ele é e como instalar](docs/MANUAL.pt-BR.md#2-o-cabo-virtual-vb-cable).
-2. Baixe o **`SoundMod-v1.0.0-windows-x64.zip`** (programa + manual offline) ou só o **`SoundMod.exe`** na **[última release](https://github.com/renanzm/sound-mod-rs/releases/latest)**.
+2. Baixe o **`SoundMod-v1.1.0-windows-x64.zip`** (programa + manual offline) ou só o **`SoundMod.exe`** na **[última release](https://github.com/renanzm/sound-mod-rs/releases/latest)**.
 3. Extraia numa pasta sua e abra o `SoundMod.exe`. Não precisa instalar mais nada. Configurações, clipes e sons ficam em `%APPDATA%\SoundMod`.
 
 > [!NOTE]

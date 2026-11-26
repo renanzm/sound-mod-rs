@@ -77,7 +77,7 @@ Sound Mod works with any virtual cable (for example, VB-Audio Hi-Fi Cable or Voi
 
 ## 3. Installing Sound Mod
 
-1. On the **[Releases](https://github.com/renanzm/sound-mod-rs/releases/latest)** page, download **`SoundMod-v1.0.0-windows-x64.zip`** (program + manual) or just **`SoundMod.exe`**.
+1. On the **[Releases](https://github.com/renanzm/sound-mod-rs/releases/latest)** page, download **`SoundMod-v1.1.0-windows-x64.zip`** (program + manual) or just **`SoundMod.exe`**.
 2. Extract the `.zip` to a folder of your own (for example, `Documents\SoundMod`) and open **`SoundMod.exe`**. Nothing else needs to be installed besides VB-CABLE.
 
 > [!NOTE]

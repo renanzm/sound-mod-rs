@@ -42,7 +42,7 @@ Sounds (F1, F2...)┘      └─► your headphones (monitor)
 ## Installation
 
 1. Install the [VB-CABLE](https://vb-audio.com/Cable/) virtual cable (free) and **restart your PC**. The manual explains [what it is and how to install it](docs/MANUAL.md#2-the-virtual-cable-vb-cable).
-2. Download **`SoundMod-v1.0.0-windows-x64.zip`** (program + offline manual) or just **`SoundMod.exe`** from the **[latest release](https://github.com/renanzm/sound-mod-rs/releases/latest)**.
+2. Download **`SoundMod-v1.1.0-windows-x64.zip`** (program + offline manual) or just **`SoundMod.exe`** from the **[latest release](https://github.com/renanzm/sound-mod-rs/releases/latest)**.
 3. Extract it to a folder of your own and open `SoundMod.exe`. Nothing else to install. Your settings, clips and sounds are stored in `%APPDATA%\SoundMod`.
 
 > [!NOTE]
